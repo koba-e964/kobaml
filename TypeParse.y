@@ -11,6 +11,7 @@ data Token =
    ID String
   |LPAREN
   |RPAREN
+  |SQUOTE
   |ARROW deriving (Eq, Show)
 
 
@@ -20,6 +21,7 @@ word = (ID <$> (many1 (digit <|> letter) <* optional spaces))
   <|> (string "->" *> return ARROW) 
   <|> (string "("  *> return LPAREN)
   <|> (string ")"  *> return RPAREN)
+  <|> (string "'"  *> return SQUOTE)
 
 words :: Parser [Token]
 words = optional spaces *> wd
@@ -29,6 +31,9 @@ tlex :: String -> [Token]
 tlex str = case parse words undefined str of
   Left _ -> error "parse error"
   Right x -> x
+
+typeOfString :: String -> Type
+typeOfString = tparse . tlex
 
 parseError :: [Token] -> a
 parseError toks = error $ "tokens:" ++ show toks
@@ -42,6 +47,7 @@ parseError toks = error $ "tokens:" ++ show toks
  id  {ID $$}
  '(' {LPAREN}
  ')' {RPAREN}
+ '\'' {SQUOTE}
  arr {ARROW}
 %%
 
@@ -49,5 +55,6 @@ parseError toks = error $ "tokens:" ++ show toks
 ty  : aty arr ty {TFun $1 $3}
     | aty        {$1}
 aty : id         {TConc $1}
+    | '\'' id    {TVar (TypeVar $2)}
     | '(' ty ')' {$2}
 
