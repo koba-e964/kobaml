@@ -36,17 +36,26 @@ freeVars (TConc _) = Set.empty
 freeVars (TFun ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
 freeVars (TVar var) = Set.singleton var
 
+addCons :: TypeVar -> Type -> TypeMap -> TypeMap
+addCons var ty tmap =
+  let conv = Map.map (subst (Map.singleton var ty)) tmap in
+  case Map.lookup var conv of
+    Just x
+      | x /= ty -> error $ "Type inconsistency: " ++ show x ++ " with " ++ show ty
+    _
+      | otherwise -> Map.insert var ty conv
+
 unify :: Type -> Type -> TypeMap -> TypeMap
 
 unify x y map
   | x == y = map
 unify (TVar x) y map
   | Set.member x (freeVars y) = unifyError (TVar x) y 
-  | otherwise                 = Map.insert x y map
+  | otherwise                 = addCons x y map
 
 unify y (TVar x) map
   | Set.member x (freeVars y) = unifyError y (TVar x)
-  | otherwise                 = Map.insert x y map
+  | otherwise                 = addCons x y map
 
 unify (TFun a1 b1) (TFun a2 b2) map =
   let ss = unify a1 a2 map in
