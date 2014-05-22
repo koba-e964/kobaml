@@ -1,5 +1,6 @@
 module TypeInf where
 
+import Data.List (foldl')
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -44,6 +45,9 @@ addCons var ty tmap =
       | x /= ty -> error $ "Type inconsistency: " ++ show x ++ " with " ++ show ty
     _
       | otherwise -> Map.insert var ty conv
+
+unifyAll :: [(Type, Type)] -> TypeMap -> TypeMap
+unifyAll ls m = foldl' (\m (p, q) -> unify p q m) m ls
 
 unify :: Type -> Type -> TypeMap -> TypeMap
 
