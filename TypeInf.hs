@@ -26,7 +26,7 @@ instance Show TypeVar where
 
 instance Show Type where
   show (TConc x) = x
-  show (TFun x y) = show x ++ " -> " ++ show y
+  show (TFun x y) = "(" ++ show x ++ " -> " ++ show y ++ ")"
   show (TVar v) = "var(" ++ show v ++ ")"
 
 type TypeMap = Map TypeVar Type
