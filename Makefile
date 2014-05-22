@@ -9,3 +9,7 @@ all : TypeInf.o TypeParse.o
 
 $(YH) : $(Y)
 	happy $(Y)
+
+clean :
+	rm -rf TypeInf.o TypeParse.o $(YH)
+
