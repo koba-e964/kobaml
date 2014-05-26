@@ -5,11 +5,10 @@ SRC = TypeInf.hs
 all : TypeInf.o TypeParse.o
 
 %.o : %.hs
-	ghc -Wall -O2 $*
+	ghc -Wall -O2 -c $*.hs
 
 $(YH) : $(Y)
 	happy $(Y)
 
 clean :
-	rm -rf TypeInf.o TypeParse.o $(YH)
-
+	rm -rf *.o *.hi $(YH)
