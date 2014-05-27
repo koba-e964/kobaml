@@ -5,3 +5,4 @@
 TypeParse.hs
 ExprLexer.hs
 ExprParser.hs
+mcalc
