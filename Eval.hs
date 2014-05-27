@@ -8,6 +8,8 @@ newtype Name = Name String deriving (Eq, Show)
 data Value = VInt Int
            | VBool Bool
            | VFun Name Env Expr
+           | VCons Value Value
+           | VNil
            deriving (Eq, Show)
 
 data Expr  = EConst Value
@@ -18,14 +20,29 @@ data Expr  = EConst Value
 	   | EDiv Expr Expr
 	   | ELt  Expr Expr
            | EEq  Expr Expr
-	   | EIf  Expr Expr Expr
+	   | EIf Expr Expr Expr
            | ELet Name Expr Expr
+           | ERLets [(Name, Name, Expr)] Expr 
+           | EMatch Expr [(Pat, Expr)]
            | EFun Name Expr
            | EApp Expr Expr
+           | ECons Expr Expr
+           | ENil
            deriving (Eq, Show)
 data Pat   = PConst Value
            | PVar   Name
+           | PCons  Pat Pat
+           | PNil
            deriving (Eq, Show)
+
+data Command
+  = CLet    Name Expr 
+  | CRLets  [(Name, Name, Expr)]  
+  | CExp    Expr 
+  | CQuit
+  deriving (Eq, Show)
+
+
 
 op2Int :: (Int -> Int -> Int) -> Value -> Value -> Value
 op2Int f (VInt v1) (VInt v2) = VInt (f v1 v2)
@@ -64,3 +81,5 @@ eval env (EApp func argv) =
     case eval env func of
       VFun (Name param) fenv expr -> eval (Map.insert param (eval env argv) fenv) expr
       _                           -> evalError $ "app: not a function: " ++ show func
+eval env (ECons e1 e2) = VCons (eval env e1) (eval env e2)
+eval env ENil          = VNil
