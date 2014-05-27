@@ -9,8 +9,9 @@ $(EXEC) : $(OBJS)
 %.o : %.hs
 	ghc -Wall -O2 -c $*.hs
 
-%.hs : %.y
+%.o : %.y
 	happy $*.y
+	ghc -O2 -c $*.hs
 
 %.o : %.x
 	alex $*.x
