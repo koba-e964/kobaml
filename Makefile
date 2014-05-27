@@ -9,8 +9,8 @@ all : TypeInf.o TypeParse.o Eval.o ExprToken.o ExprParser.o ExprLexer.o
 %.hs : %.y
 	happy $*.y
 
-%.hs : %.x
+%.o : %.x
 	alex $*.x
-
+	ghc -O2 -c $*.hs
 clean :
 	rm -rf *.o *.hi $(YH)
