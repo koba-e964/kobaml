@@ -3,6 +3,7 @@
 module ExprParser where
 
 import Eval
+import ExprToken
 import Prelude hiding (EQ, LT, GT)
 import qualified Data.List as List
 
@@ -13,38 +14,6 @@ mynot e = EIf e myfalse mytrue
 myand e1 e2 = EIf e1 e2 myfalse 
 myor e1 e2  = EIf e1 mytrue e2
 
-data Token 
-    = INT Int
-    | ID String
-    | EQ
-    | LET
-    | REC
-    | DAND
-    | IN
-    | IF
-    | THEN
-    | ELSE
-    | MATCH
-    | WITH
-    | BAR
-    | FUN
-    | ARROW
-    | TRUE
-    | FALSE
-    | PLUS
-    | MINUS
-    | TIMES
-    | DIV
-    | CONS
-    | LBRACKET
-    | RBRACKET
-    | OR
-    | AND
-    | LT | LE | GT | GE
-    | LPAR | RPAR
-    | EOC
-    | EOF
-    deriving (Eq, Show)
 
 parseError :: [Token] -> a
 parseError toks = error $ "parseError: " ++ show toks

@@ -3,4 +3,5 @@
 *.o
 *~
 TypeParse.hs
+ExprLexer.hs
 ExprParser.hs
