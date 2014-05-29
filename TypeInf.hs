@@ -6,6 +6,8 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import Eval
+
 import Prelude hiding (map)
 
 data Type = 
@@ -34,6 +36,13 @@ instance Show Type where
   show (TVar v) = "'" ++ show v
 
 type TypeMap = Map TypeVar Type
+type TypeEnv = Map String  Type
+
+tmEmpty :: TypeMap
+tmEmpty = Map.empty
+
+teEmpty :: TypeEnv
+teEmpty = Map.empty
 
 freeVars :: Type -> Set TypeVar {- free variables in type -}
 freeVars (TConc _) = Set.empty
@@ -83,3 +92,34 @@ subst tmap (TVar v) =
     Nothing -> TVar v
 subst tmap (TFun x y) = TFun (subst tmap x) (subst tmap y)
 subst _    (TConc x)  = TConc x
+
+newType :: Type
+newType = error $ "newType is not supported (><)"
+
+
+gatherConstraints :: TypeEnv -> Expr -> (Type, [TypeCons])
+
+gatherConstraints env expr =
+  case expr of
+    EConst val -> case val of
+      VInt _  -> (intType, [])
+      VBool _ -> (boolType, [])
+      _       -> undefined
+    EVar (Name name) -> case Map.lookup name env of
+      Just ty -> (ty, [])
+      Nothing -> error $ "unbound variable >_<"
+    EAdd e1 e2 -> (intType, gatherConsHelper env [(e1,intType), (e2, intType)])
+    ESub e1 e2 -> (intType, gatherConsHelper env [(e1,intType), (e2, intType)])
+    EMul e1 e2 -> (intType, gatherConsHelper env [(e1,intType), (e2, intType)])
+    EDiv e1 e2 -> (intType, gatherConsHelper env [(e1,intType), (e2, intType)])
+    ELt  e1 e2 -> (boolType,gatherConsHelper env [(e1,intType), (e2, intType)])
+    EEq  e1 e2 -> (boolType,gatherConsHelper env [(e1,intType), (e2, intType)])
+    EIf ec e1 e2 -> let newTy = newType in 
+      (newTy, gatherConsHelper env [(ec, boolType), (e1, newTy), (e2, newTy)])
+
+gatherConsHelper :: TypeEnv -> [(Expr, Type)] -> [TypeCons]
+
+gatherConsHelper tenv ls = List.concat $ List.map f ls where
+  f (expr, tyEx) =
+    let (tyAc, cons) = gatherConstraints tenv expr
+      in (tyEx, tyAc) : cons
