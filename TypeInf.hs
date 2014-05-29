@@ -1,6 +1,5 @@
 module TypeInf where
 
-import Data.List (foldl')
 import qualified Data.List as List 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -29,7 +28,9 @@ instance Show TypeVar where
 
 instance Show Type where
   show (TConc x) = x
-  show (TFun x y) = "(" ++ show x ++ " -> " ++ show y ++ ")"
+  show (TFun x y) = case x of
+    (TFun _ _) -> "(" ++ show x ++ ") -> " ++ show y 
+    _          -> show x ++ " -> " ++ show y
   show (TVar v) = "var(" ++ show v ++ ")"
 
 type TypeMap = Map TypeVar Type
@@ -47,7 +48,7 @@ addCons var ty (tmap, cons) =
     (conv, newcons)
 
 unifyAll :: [TypeCons] -> TypeMap -> TypeMap
-unifyAll ls m = sub m ls where
+unifyAll cons map = sub map cons where
          sub m [] = m
          sub m ((ty1, ty2):rest) = let (newm, newrest) = unify ty1 ty2 (m, rest) in sub newm newrest
 
@@ -57,11 +58,11 @@ unify :: Type -> Type -> (TypeMap, [TypeCons]) -> (TypeMap, [TypeCons])
 unify x y map
   | x == y = map
 unify (TVar x) y map
-  | Set.member x (freeVars y) = unifyError (TVar x) y 
+  | Set.member x (freeVars y) = errorRecursive x y map
   | otherwise                 = addCons x y map
 
 unify y (TVar x) map
-  | Set.member x (freeVars y) = unifyError y (TVar x)
+  | Set.member x (freeVars y) = errorRecursive x y map
   | otherwise                 = addCons x y map
 
 unify (TFun a1 b1) (TFun a2 b2) (map, cons) =
@@ -69,7 +70,10 @@ unify (TFun a1 b1) (TFun a2 b2) (map, cons) =
 unify x y _ = unifyError x y
 
 unifyError :: Type -> Type -> a
-unifyError x y = error ("Cannot unify " ++ show x ++" with " ++ show y)
+unifyError x y = error ("Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)" )
+
+errorRecursive :: TypeVar -> Type -> (TypeMap, [TypeCons]) -> a
+errorRecursive tvar ty mapc = error $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
 
 
 subst :: TypeMap -> Type -> Type
