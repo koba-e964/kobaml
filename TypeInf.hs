@@ -31,7 +31,7 @@ instance Show Type where
   show (TFun x y) = case x of
     (TFun _ _) -> "(" ++ show x ++ ") -> " ++ show y 
     _          -> show x ++ " -> " ++ show y
-  show (TVar v) = "var(" ++ show v ++ ")"
+  show (TVar v) = "'" ++ show v
 
 type TypeMap = Map TypeVar Type
 
