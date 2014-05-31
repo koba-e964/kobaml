@@ -8,6 +8,7 @@ newtype Name = Name String deriving (Eq, Show)
 data Value = VInt Int
            | VBool Bool
            | VFun Name Env Expr
+	   | VRFun Int [(Name, Name, Expr)] Env
            | VCons Value Value
            | VNil
            deriving (Eq, Show)
@@ -76,10 +77,24 @@ eval env (EIf vc v1 v2) =
 eval env (ELet (Name name) ei eo) =
     let newenv = Map.insert name (eval env ei) env in
       eval newenv eo
+eval env (ERLets bindings expr) = eval (getNewEnvInRLets bindings env) expr
 eval env (EFun name expr) = VFun name env expr
-eval env (EApp func argv) =
-    case eval env func of
-      VFun (Name param) fenv expr -> eval (Map.insert param (eval env argv) fenv) expr
-      _                           -> evalError $ "app: not a function: " ++ show func
+eval env (EApp func argv) = evalApp (eval env func) (eval env argv)
 eval env (ECons e1 e2) = VCons (eval env e1) (eval env e2)
-eval env ENil          = VNil
+eval _   ENil          = VNil
+
+evalApp :: Value -> Value -> Value
+evalApp fval aval =
+  case fval of
+    VFun (Name param) fenv expr -> eval (Map.insert param aval fenv) expr
+    VRFun ind bindings fenv     ->
+      let (_, Name arg, expr) = bindings !! ind
+      	  newenv       	      = Map.insert arg aval (getNewEnvInRLets bindings fenv) in
+      eval newenv expr
+    others                      -> evalError $ "app: not a function: " ++ show others
+
+getNewEnvInRLets :: [(Name, Name, Expr)] -> Env -> Env
+getNewEnvInRLets bindings oldenv = sub oldenv bindings 0 where
+  sub env [] _ = env
+  sub env ((Name fname, _, _) : rest) num =
+    sub (Map.insert fname (VRFun num bindings env) env) rest (num + 1)
