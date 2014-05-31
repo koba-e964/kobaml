@@ -1,7 +1,9 @@
+{-# LANGUAGE BangPatterns #-}
 module Eval where
 
 import qualified Data.Map as Map
 import Data.Map (Map)
+import Data.Maybe (fromMaybe)
 
 newtype Name = Name String deriving (Eq, Show)
 
@@ -78,6 +80,7 @@ eval env (ELet (Name name) ei eo) =
     let newenv = Map.insert name (eval env ei) env in
       eval newenv eo
 eval env (ERLets bindings expr) = eval (getNewEnvInRLets bindings env) expr
+eval env (EMatch expr patex) = fromMaybe (evalError "Matching not exhaustive") $ tryMatchAll (eval env expr) env patex
 eval env (EFun name expr) = VFun name env expr
 eval env (EApp func argv) = evalApp (eval env func) (eval env argv)
 eval env (ECons e1 e2) = VCons (eval env e1) (eval env e2)
@@ -98,3 +101,23 @@ getNewEnvInRLets bindings oldenv = sub oldenv bindings 0 where
   sub env [] _ = env
   sub env ((Name fname, _, _) : rest) num =
     sub (Map.insert fname (VRFun num bindings env) env) rest (num + 1)
+
+tryMatchAll :: Value -> Env -> [(Pat, Expr)] -> Maybe Value
+tryMatchAll _    _  []                   = Nothing
+tryMatchAll val env ((pat, expr) : rest) = case tryMatch val env pat of
+  Nothing     -> tryMatchAll val env rest
+  Just newenv -> Just (eval newenv expr)
+
+tryMatch :: Value -> Env -> Pat -> Maybe Env
+tryMatch !val !env !pat = case pat of
+  PConst v          -> if val == v then Just env else Nothing
+  PVar (Name vname) -> Just $! Map.insert vname val env
+  PCons pcar pcdr   -> case val of
+    VCons vcar vcdr -> do
+      ex <- tryMatch vcar env pcar
+      ey <- tryMatch vcdr env pcdr
+      return $! Map.union ey (Map.union ex env)
+    _ 	            -> Nothing
+  PNil              -> case val of
+    VNil  -> Just env
+    _     -> Nothing

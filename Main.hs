@@ -15,7 +15,7 @@ repl env = do
       CLet (Name name) expr ->
         let newenv = Map.insert name (eval env expr) env in
           repl newenv
-      CRLets ls             -> undefined
+      CRLets bindings       -> repl $ getNewEnvInRLets bindings env
       CExp expr             -> print (eval env expr) >> repl env
       CQuit                 -> return ()
 
