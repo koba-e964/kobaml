@@ -13,8 +13,18 @@ data Value = VInt Int
 	   | VRFun Int [(Name, Name, Expr)] Env
            | VCons Value Value
            | VNil
-           deriving (Eq, Show)
+           deriving (Eq)
 
+instance (Show Value) where
+  show (VInt  v) = show v
+  show (VBool v) = show v
+  show (VFun (Name name) _ _) = "fun " ++ name ++ " -> (expr)" 
+  show (VRFun ind bindings _) = "vrfun ind=" ++ show ind ++ " -> (expr)"
+  show (VCons vcar vcdr) = "[" ++ sub vcar vcdr ++ "]" where
+    sub !v VNil = show v
+    sub !v1 (VCons v2 v3) = show v1 ++ ", " ++ sub v2 v3
+    sub _  _ = error "(>_<) < weird... the last cell of the list is not nil..."
+  show VNil = "[]"
 data Expr  = EConst Value
            | EVar Name
      	   | EAdd Expr Expr
@@ -62,7 +72,7 @@ evalError str = error $ "Evaluation error:" ++ str
 
 eval :: Env -> Expr -> Value
 eval _   (EConst v) = v
-eval env (EVar (Name name)) =
+eval !env (EVar (Name name)) =
     case Map.lookup name env of
       Just value -> value
       Nothing    -> evalError $ "Unbound variable: " ++ name
