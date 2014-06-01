@@ -206,3 +206,15 @@ tyRLetBindings tenv bindings = do
     (ty, con) <- gatherConstraints (Map.insert vname a midmap) fexpr
     return $ (b `typeEqual` ty) : con
   return (midmap, concat tcs)
+
+typeInfer :: (Monad m, Functor m) => TypeEnv -> Expr -> St m Type
+typeInfer tenv expr = do
+  (ty, cons) <- gatherConstraints tenv expr
+  let substs = unifyAll cons tmEmpty
+  return $ subst substs ty
+
+tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m TypeEnv
+tyRLetBindingsInfer tenv bindings = do
+  (newtenv, cons) <- tyRLetBindings tenv bindings
+  let tySubst = unifyAll cons tmEmpty
+  return $ fmap (subst tySubst) newtenv
