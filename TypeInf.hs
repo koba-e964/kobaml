@@ -48,11 +48,14 @@ instance Show Type where
 type TypeMap = Map TypeVar Type
 type TypeEnv = Map String  Type
 
+type St m = StateT Int m -- the state of the type inferrer
+
 tmEmpty :: TypeMap
 tmEmpty = Map.empty
 
 teEmpty :: TypeEnv
 teEmpty = Map.empty
+
 
 freeVars :: Type -> Set TypeVar {- free variables in type -}
 freeVars (TConc _) = Set.empty
@@ -107,13 +110,13 @@ subst tmap (TFun x y) = TFun (subst tmap x) (subst tmap y)
 subst _    (TConc x)  = TConc x
 subst tmap (TList a) = TList (subst tmap a)
 
-newType :: State Int Type
+newType :: (Monad m, Functor m) => St m Type
 newType = do
   v <- get
   put (v+1)
   return $ TVar $ TypeVar $ "t" ++ show v
 
-gatherConstraints :: TypeEnv -> Expr -> State Int (Type, [TypeCons])
+gatherConstraints :: (Monad m, Functor m) => TypeEnv -> Expr -> St m (Type, [TypeCons])
 
 gatherConstraints !env !expr =
   case expr of
@@ -164,20 +167,20 @@ gatherConstraints !env !expr =
       a <- newType
       return $ (TList a, [])
 
-gatherConsHelper :: TypeEnv -> [(Expr, Type)] -> State Int [TypeCons]
+gatherConsHelper :: (Monad m, Functor m) => TypeEnv -> [(Expr, Type)] -> St m [TypeCons]
 
 gatherConsHelper tenv ls = fmap List.concat $ sequence $ List.map f ls where
   f (expr, tyEx) = do
     (tyAc, cons) <-  gatherConstraints tenv expr
     return $ (tyEx `typeEqual` tyAc) : cons
 
-gatherConstraintsPatExpr :: TypeEnv -> (Pat, Expr) -> State Int (Type, Type, [TypeCons])
+gatherConstraintsPatExpr :: (Monad m, Functor m) => TypeEnv -> (Pat, Expr) -> St m (Type, Type, [TypeCons])
 gatherConstraintsPatExpr tenv (pat, expr) = do
   (ty, cons, penv) <- gatherConstraintsPat pat
   (tye, econs) <- gatherConstraints (Map.union penv tenv) expr
   return (ty, tye, econs ++ cons)
 
-gatherConstraintsPat :: Pat -> State Int (Type, [TypeCons], TypeEnv)
+gatherConstraintsPat :: (Monad m, Functor m) => Pat -> St m (Type, [TypeCons], TypeEnv)
 gatherConstraintsPat (PConst (VInt _)) = return (intType, [], Map.empty)
 gatherConstraintsPat (PConst (VBool _)) = return (boolType, [], Map.empty)
 gatherConstraintsPat (PConst _      ) = error "(>_<) < weird... invalid const pattern..."
@@ -192,7 +195,7 @@ gatherConstraintsPat (PCons pcar pcdr) = do
   (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
   return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr, Map.union ecar ecdr)
 
-tyRLetBindings :: TypeEnv -> [(Name, Name, Expr)] -> State Int (TypeEnv, [TypeCons])
+tyRLetBindings :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m (TypeEnv, [TypeCons])
 tyRLetBindings tenv bindings = do
   defmap <- forM bindings $ \(Name fname, Name vname, fexpr) -> do
     a <- newType

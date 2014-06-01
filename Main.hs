@@ -1,14 +1,16 @@
 module Main where
 
+import Control.Monad.State
+
 import Eval
 import ExprLexer
 import ExprParser
 import qualified Data.Map as Map
 import TypeInf
 
-repl :: Env -> IO ()
+repl :: Env -> St IO ()
 repl env = do
-  cont <- getLine
+  cont <- lift getLine
   let tokens =  alexScanTokens cont
       cmd    = exparse tokens
    in
@@ -17,8 +19,8 @@ repl env = do
         let newenv = Map.insert name (eval env expr) env in
           repl newenv
       CRLets bindings       -> repl $ getNewEnvInRLets bindings env
-      CExp expr             -> print (eval env expr) >> repl env
+      CExp expr             -> lift (print (eval env expr)) >> repl env
       CQuit                 -> return ()
 
 main :: IO ()
-main = repl Map.empty
+main = runStateT (repl Map.empty) 0 >> return ()
