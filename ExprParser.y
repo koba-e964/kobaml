@@ -4,6 +4,7 @@ module ExprParser where
 
 import Eval
 import ExprToken
+import ExprLexer
 import Prelude hiding (EQ, LT, GT)
 import qualified Data.List as List
 
@@ -17,6 +18,9 @@ myor e1 e2  = EIf e1 mytrue e2
 
 parseError :: [Token] -> a
 parseError toks = error $ "parseError: " ++ show toks
+
+commandOfString :: String -> Command
+commandOfString = exparse . alexScanTokens
 }
 
 

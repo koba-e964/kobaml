@@ -1,6 +1,6 @@
 Y = TypeParse.y ExprParser.y ExprLexer.x
 YH = TypeParse.hsy ExprParser.hsy ExprLexer.hsx
-OBJS = Eval.o ExprToken.o ExprParser.o ExprLexer.o TypeInf.o TypeParse.o Main.o
+OBJS = Eval.o ExprToken.o ExprLexer.o ExprParser.o TypeInf.o TypeParse.o Main.o
 EXEC = mcalc
 
 $(EXEC) : $(OBJS)
