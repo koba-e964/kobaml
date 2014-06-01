@@ -4,6 +4,7 @@ import Eval
 import ExprLexer
 import ExprParser
 import qualified Data.Map as Map
+import TypeInf
 
 repl :: Env -> IO ()
 repl env = do
