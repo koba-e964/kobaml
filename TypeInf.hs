@@ -25,10 +25,13 @@ boolType :: Type
 boolType = TConc "bool"
 
 data TypeVar = TypeVar String deriving (Eq, Ord)
-type TypeCons = (Type, Type)
+data TypeCons = TypeEqual Type Type deriving (Eq)
+
+instance (Show TypeCons) where
+  show (TypeEqual a b) = show a ++ " = " ++ show b
 
 typeEqual :: Type -> Type -> TypeCons
-typeEqual = (,)
+typeEqual = TypeEqual
 
 instance Show TypeVar where
   show (TypeVar x) = x
@@ -61,13 +64,13 @@ addCons :: TypeVar -> Type -> (TypeMap, [TypeCons]) -> (TypeMap, [TypeCons])
 addCons var ty (tmap, cons) =
   let inc = subst (Map.singleton var ty)
       conv = Map.insert var ty $ Map.map inc tmap
-      newcons = List.map (\(ty1, ty2) -> (inc ty1, inc ty2)) cons in
+      newcons = List.map (\(TypeEqual ty1 ty2) -> inc ty1 `typeEqual` inc ty2) cons in
     (conv, newcons)
 
 unifyAll :: [TypeCons] -> TypeMap -> TypeMap
 unifyAll cons map = sub map cons where
          sub m [] = m
-         sub m ((ty1, ty2):rest) = let (newm, newrest) = unify ty1 ty2 (m, rest) in sub newm newrest
+         sub m ((TypeEqual ty1 ty2):rest) = let (newm, newrest) = unify ty1 ty2 (m, rest) in sub newm newrest
 
 
 unify :: Type -> Type -> (TypeMap, [TypeCons]) -> (TypeMap, [TypeCons])
