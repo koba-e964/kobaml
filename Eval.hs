@@ -19,7 +19,7 @@ instance (Show Value) where
   show (VInt  v) = show v
   show (VBool v) = show v
   show (VFun (Name name) _ _) = "fun " ++ name ++ " -> (expr)" 
-  show (VRFun ind bindings _) = "vrfun ind=" ++ show ind ++ " -> (expr)"
+  show (VRFun ind _ _) = "vrfun ind=" ++ show ind ++ " -> (expr)"
   show (VCons vcar vcdr) = "[" ++ sub vcar vcdr ++ "]" where
     sub !v VNil = show v
     sub !v1 (VCons v2 v3) = show v1 ++ ", " ++ sub v2 v3

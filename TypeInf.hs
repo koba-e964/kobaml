@@ -204,8 +204,8 @@ tyRLetBindings tenv bindings = do
     a <- newType
     b <- newType
     return (fname, vname, fexpr, a, b)
-  let midmap = List.foldr ( \ (fname, vname, fexpr, a, b) -> Map.insert fname (TFun a b)) tenv defmap
-  tcs <- forM defmap $ \ (fname, vname, fexpr, a, b) -> do
+  let midmap = List.foldr ( \ (fname, _, _, a, b) -> Map.insert fname (TFun a b)) tenv defmap
+  tcs <- forM defmap $ \ (_, vname, fexpr, a, b) -> do
     (ty, con) <- gatherConstraints (Map.insert vname a midmap) fexpr
     return $ (b `typeEqual` ty) : con
   return (midmap, concat tcs)
