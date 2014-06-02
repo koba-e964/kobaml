@@ -27,15 +27,18 @@ boolType = TConc "bool"
 data TypeVar = TypeVar String deriving (Eq, Ord)
 data TypeCons = TypeEqual Type Type deriving (Eq)
 
+data TypeScheme = Forall [TypeVar] Type
+
+type TypeMap = Map TypeVar Type
+type TypeEnv = Map String  Type
+
+instance Show TypeVar where
+  show (TypeVar x) = x
 instance (Show TypeCons) where
   show (TypeEqual a b) = show a ++ " = " ++ show b
 
 typeEqual :: Type -> Type -> TypeCons
 typeEqual = TypeEqual
-
-instance Show TypeVar where
-  show (TypeVar x) = x
-
 
 instance Show Type where
   show (TConc x) = x
@@ -45,8 +48,8 @@ instance Show Type where
   show (TVar v) = "'" ++ show v
   show (TList a) = "[" ++ show a ++ "]"
 
-type TypeMap = Map TypeVar Type
-type TypeEnv = Map String  Type
+instance Show TypeScheme where
+  show (Forall bvs ty) = "forall" ++ concat (List.map (\x -> " '" ++ show x) bvs) ++ ". " ++ show ty
 
 type St m = StateT Int m -- the state of the type inferrer
 
