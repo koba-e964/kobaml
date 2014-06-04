@@ -8,7 +8,7 @@ import ExprParser
 import qualified Data.Map as Map
 import TypeInf
 
-processExpr :: String -> TypeEnv -> Env -> Expr -> St IO (Type, Value)
+processExpr :: String -> TypeEnv -> Env -> Expr -> St IO (TypeScheme, Value)
 processExpr name tenv venv expr = do
   ty <- typeInfer tenv expr
   lift $ putStrLn $ name ++ " : " ++ show ty

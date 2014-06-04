@@ -7,6 +7,8 @@ import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Monad.State
+import Control.Monad.ST
+import Data.STRef
 
 import Eval
 
@@ -66,6 +68,9 @@ freeVars (TFun ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
 freeVars (TVar var) = Set.singleton var
 freeVars (TList a) = freeVars a
 
+freeVarsTypeScheme :: TypeScheme -> Set TypeVar
+freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) (Set.fromList vars)
+
 addCons :: TypeVar -> Type -> (TypeMap, [TypeCons]) -> (TypeMap, [TypeCons])
 addCons var ty (tmap, cons) =
   let inc = subst (Map.singleton var ty)
@@ -120,20 +125,25 @@ substTypeScheme tmap (Forall vars ty) =
 
 newType :: (Monad m, Functor m) => St m Type
 newType = do
+  v <- newTypeVar
+  return $ TVar v
+
+newTypeVar :: (Monad m, Functor m) => St m TypeVar
+newTypeVar = do
   v <- get
   put (v+1)
-  return $ TVar $ TypeVar $ "t" ++ show v
+  return $ TypeVar $ "t" ++ show v
 
 gatherConstraints :: (Monad m, Functor m) => TypeEnv -> Expr -> St m (TypeScheme, [TypeCons])
 
 gatherConstraints !env !expr =
   case expr of
     EConst val -> case val of
-      VInt _  -> return (intType, [])
-      VBool _ -> return (boolType, [])
+      VInt _  -> return (Forall [] intType, [])
+      VBool _ -> return (Forall [] boolType, [])
       _       -> undefined
     EVar (Name name) -> case Map.lookup name env of
-      Just ty -> return $ (instantiate ty, [])
+      Just ty -> return $ (ty, [])
       Nothing -> error $ "unbound variable >_<"
     EAdd e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     ESub e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
@@ -144,12 +154,12 @@ gatherConstraints !env !expr =
     EIf ec e1 e2 -> do
       newTy <- newType
       cons <- gatherConsHelper env [(ec, boolType), (e1, newTy), (e2, newTy)] 
-      return (generalize env newTy, cons)
+      return (Forall [] newTy, cons)
     ELet (Name name) e1 e2 -> do
       (t1, c1) <- gatherConstraints env e1
-      let substs = unifyAll c1
-      let newtenv = fmap (generalize . substTypeScheme (substs tmEmpty)) env
-      (t2, c2) <- gatherConstraints (Map.insert name (substTypeScheme (substs tmEmpty) t1) newtenv) e2
+      let substs = unifyAll c1 tmEmpty :: TypeMap
+      let newtenv = fmap (generalize env . substTypeScheme substs) env :: TypeEnv
+      (t2, c2) <- gatherConstraints (Map.insert name (substTypeScheme substs t1) newtenv) e2
       return (t2, c2)
     EFun (Name name) fexpr -> do
       a <- newType
@@ -161,7 +171,7 @@ gatherConstraints !env !expr =
       (tcdr, ccdr) <- gatherConstraints env cdr
       itcar <- instantiate tcar
       itcdr <- instantiate tcdr
-      return (tcdr, (TList itcar `typeEqual` itcdr) : ccar ++ ccdr)
+      return (Forall [] itcdr, (TList itcar `typeEqual` itcdr) : ccar ++ ccdr)
     EApp func arg -> do
       (t1, c1) <- gatherConstraints env func
       (t2, c2) <- gatherConstraints env arg
@@ -239,7 +249,16 @@ tyRLetBindingsInfer tenv bindings = do
   return $ fmap (generalize tenv . substTypeScheme tySubst) newtenv
 
 generalize :: TypeEnv -> TypeScheme -> TypeScheme
-generalize = error "(>_<)"
+generalize env tysch@(Forall vars tyy) =
+    let free = freeVarsTypeScheme tysch
+        wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env in
+    Forall (Set.toList wholefree ++ vars) tyy
 
-instantiate :: TypeScheme -> St m Type
-instantiate = error "<(>_<)>"
+instantiate :: (Monad m, Functor m) => TypeScheme -> St m Type
+instantiate (Forall vars ty) = do
+    varmap <- forM vars $ \var -> fmap (var,) newType
+    return $ runST $ do
+      x <- newSTRef ty
+      forM_ varmap $ \ (var, cvarty) -> do
+          modifySTRef x (subst (Map.singleton var cvarty))
+      readSTRef x
