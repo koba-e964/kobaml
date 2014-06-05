@@ -2,11 +2,13 @@
 {- This parser was originally provided by IS, then modified by koba-e964.-}
 module ExprParser where
 
+import CDef
 import Eval
 import ExprToken
 import ExprLexer
 import Prelude hiding (EQ, LT, GT)
 import qualified Data.List as List
+import Control.Exception (throw)
 
 mytrue  = EConst (VBool True)
 myfalse = EConst (VBool False)
@@ -16,10 +18,10 @@ myand e1 e2 = EIf e1 e2 myfalse
 myor e1 e2  = EIf e1 mytrue e2
 
 
-parseError :: [Token] -> a
-parseError toks = error $ "parseError: " ++ show toks
+parseError :: [Token] -> Either ParseError a
+parseError toks = Left $ ParseError $ "parseError: " ++ show toks
 
-commandOfString :: String -> Command
+commandOfString :: String -> Either ParseError Command
 commandOfString = exparse . alexScanTokens
 }
 
@@ -27,6 +29,7 @@ commandOfString = exparse . alexScanTokens
 %name      exparse
 %tokentype {Token}
 %error     {parseError} 
+%monad {Either ParseError} {(>>=)} {Right}
 
 %token
 LET {LET}
