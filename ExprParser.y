@@ -3,7 +3,6 @@
 module ExprParser where
 
 import CDef
-import Eval
 import ExprToken
 import ExprLexer
 import Prelude hiding (EQ, LT, GT)

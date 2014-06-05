@@ -2,60 +2,9 @@
 module Eval where
 
 import qualified Data.Map as Map
-import Data.Map (Map)
 import Data.Maybe (fromMaybe)
 
-newtype Name = Name String deriving (Eq, Show)
-
-data Value = VInt Int
-           | VBool Bool
-           | VFun Name Env Expr
-	   | VRFun Int [(Name, Name, Expr)] Env
-           | VCons Value Value
-           | VNil
-           deriving (Eq)
-
-instance (Show Value) where
-  show (VInt  v) = show v
-  show (VBool v) = show v
-  show (VFun (Name name) _ _) = "fun " ++ name ++ " -> (expr)" 
-  show (VRFun ind _ _) = "vrfun ind=" ++ show ind ++ " -> (expr)"
-  show (VCons vcar vcdr) = "[" ++ sub vcar vcdr ++ "]" where
-    sub !v VNil = show v
-    sub !v1 (VCons v2 v3) = show v1 ++ ", " ++ sub v2 v3
-    sub _  _ = error "(>_<) < weird... the last cell of the list is not nil..."
-  show VNil = "[]"
-data Expr  = EConst Value
-           | EVar Name
-     	   | EAdd Expr Expr
-     	   | ESub Expr Expr
-	   | EMul Expr Expr
-	   | EDiv Expr Expr
-	   | ELt  Expr Expr
-           | EEq  Expr Expr
-	   | EIf Expr Expr Expr
-           | ELet Name Expr Expr
-           | ERLets [(Name, Name, Expr)] Expr 
-           | EMatch Expr [(Pat, Expr)]
-           | EFun Name Expr
-           | EApp Expr Expr
-           | ECons Expr Expr
-           | ENil
-           deriving (Eq, Show)
-data Pat   = PConst Value
-           | PVar   Name
-           | PCons  Pat Pat
-           | PNil
-           deriving (Eq, Show)
-
-data Command
-  = CLet    Name Expr 
-  | CRLets  [(Name, Name, Expr)]  
-  | CExp    Expr 
-  | CQuit
-  deriving (Eq, Show)
-
-
+import CDef
 
 op2Int :: (Int -> Int -> Int) -> Value -> Value -> Value
 op2Int f (VInt v1) (VInt v2) = VInt (f v1 v2)
@@ -65,7 +14,6 @@ op2IntBool :: (Int -> Int -> Bool) -> Value -> Value -> Value
 op2IntBool f (VInt v1) (VInt v2) = VBool (f v1 v2)
 op2IntBool _ v1 v2 = evalError $ "int required, but got " ++ show v1 ++ ", " ++ show v2
 
-type Env = Map String Value
 
 evalError :: String -> a
 evalError str = error $ "Evaluation error:" ++ str

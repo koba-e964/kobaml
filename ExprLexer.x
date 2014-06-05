@@ -1,7 +1,7 @@
 {
 module ExprLexer where
 
-import Eval
+import CDef
 import ExprToken
 import Prelude hiding (EQ, LT, GT)
 

@@ -10,7 +10,7 @@ import Control.Monad.State
 import Control.Monad.ST
 import Data.STRef
 
-import Eval
+import CDef
 
 import Prelude hiding (map)
 

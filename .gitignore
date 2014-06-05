@@ -6,3 +6,5 @@ TypeParse.hs
 ExprLexer.hs
 ExprParser.hs
 mcalc
+*.hsx
+*.hsy
