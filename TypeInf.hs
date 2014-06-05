@@ -31,7 +31,7 @@ data TypeCons = TypeEqual Type Type deriving (Eq)
 
 data TypeScheme = Forall [TypeVar] Type
 
-type TypeMap = Map TypeVar Type
+type TypeSubst = Map TypeVar Type
 type TypeEnv = Map String  TypeScheme
 
 instance Show TypeVar where
@@ -55,7 +55,7 @@ instance Show TypeScheme where
 
 type St m = StateT Int m -- the state of the type inferrer
 
-tmEmpty :: TypeMap
+tmEmpty :: TypeSubst
 tmEmpty = Map.empty
 
 teEmpty :: TypeEnv
@@ -71,20 +71,20 @@ freeVars (TList a) = freeVars a
 freeVarsTypeScheme :: TypeScheme -> Set TypeVar
 freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) (Set.fromList vars)
 
-addCons :: TypeVar -> Type -> (TypeMap, [TypeCons]) -> (TypeMap, [TypeCons])
+addCons :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 addCons var ty (tmap, cons) =
   let inc = subst (Map.singleton var ty)
       conv = Map.insert var ty $ Map.map inc tmap
       newcons = List.map (\(TypeEqual ty1 ty2) -> inc ty1 `typeEqual` inc ty2) cons in
     (conv, newcons)
 
-unifyAll :: [TypeCons] -> TypeMap -> TypeMap
+unifyAll :: [TypeCons] -> TypeSubst -> TypeSubst
 unifyAll cons map = sub map cons where
          sub m [] = m
          sub m ((TypeEqual ty1 ty2):rest) = let (newm, newrest) = unify ty1 ty2 (m, rest) in sub newm newrest
 
 
-unify :: Type -> Type -> (TypeMap, [TypeCons]) -> (TypeMap, [TypeCons])
+unify :: Type -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 
 unify x y map
   | x == y = map
@@ -105,11 +105,11 @@ unify x y _ = unifyError x y
 unifyError :: Type -> Type -> a
 unifyError x y = error ("Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)" )
 
-errorRecursive :: TypeVar -> Type -> (TypeMap, [TypeCons]) -> a
+errorRecursive :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> a
 errorRecursive tvar ty mapc = error $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
 
 
-subst :: TypeMap -> Type -> Type
+subst :: TypeSubst -> Type -> Type
 subst tmap (TVar v) =
   case Map.lookup v tmap of
     Just t -> t
@@ -118,7 +118,7 @@ subst tmap (TFun x y) = TFun (subst tmap x) (subst tmap y)
 subst _    (TConc x)  = TConc x
 subst tmap (TList a) = TList (subst tmap a)
 
-substTypeScheme :: TypeMap -> TypeScheme -> TypeScheme
+substTypeScheme :: TypeSubst -> TypeScheme -> TypeScheme
 substTypeScheme tmap (Forall vars ty) =
   let newtmap = List.foldl' (\m x -> Map.delete x m) tmap vars in
     Forall vars (subst newtmap ty)
@@ -157,7 +157,7 @@ gatherConstraints !env !expr =
       return (Forall [] newTy, cons)
     ELet (Name name) e1 e2 -> do
       (t1, c1) <- gatherConstraints env e1
-      let substs = unifyAll c1 tmEmpty :: TypeMap
+      let substs = unifyAll c1 tmEmpty :: TypeSubst
       let newtenv = fmap (generalize env . substTypeScheme substs) env :: TypeEnv
       (t2, c2) <- gatherConstraints (Map.insert name (substTypeScheme substs t1) newtenv) e2
       return (t2, c2)
