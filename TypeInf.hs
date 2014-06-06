@@ -9,67 +9,12 @@ import qualified Data.Set as Set
 import Control.Monad.State
 import Control.Monad.ST
 import Data.STRef
+import Prelude hiding (map)
 
 import CDef
 
-import Prelude hiding (map)
-
-data Type = 
-    TConc String -- concrete type
-  | TFun Type Type
-  | TVar TypeVar
-  | TList Type
-  deriving Eq
-
-intType :: Type
-intType = TConc "int"
-boolType :: Type
-boolType = TConc "bool"
-
-data TypeVar = TypeVar String deriving (Eq, Ord)
-data TypeCons = TypeEqual Type Type deriving (Eq)
-
-data TypeScheme = Forall [TypeVar] Type
-
-type TypeSubst = Map TypeVar Type
-type TypeEnv = Map String  TypeScheme
-
-instance Show TypeVar where
-  show (TypeVar x) = x
-instance (Show TypeCons) where
-  show (TypeEqual a b) = show a ++ " = " ++ show b
-
-typeEqual :: Type -> Type -> TypeCons
-typeEqual = TypeEqual
-
-instance Show Type where
-  show (TConc x) = x
-  show (TFun x y) = case x of
-    (TFun _ _) -> "(" ++ show x ++ ") -> " ++ show y 
-    _          -> show x ++ " -> " ++ show y
-  show (TVar v) = "'" ++ show v
-  show (TList a) = "[" ++ show a ++ "]"
-
-instance Show TypeScheme where
-  show (Forall bvs ty) = "forall" ++ concat (List.map (\x -> " '" ++ show x) bvs) ++ ". " ++ show ty
 
 type St m = StateT Int m -- the state of the type inferrer
-
-tmEmpty :: TypeSubst
-tmEmpty = Map.empty
-
-teEmpty :: TypeEnv
-teEmpty = Map.empty
-
-
-freeVars :: Type -> Set TypeVar {- free variables in type -}
-freeVars (TConc _) = Set.empty
-freeVars (TFun ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
-freeVars (TVar var) = Set.singleton var
-freeVars (TList a) = freeVars a
-
-freeVarsTypeScheme :: TypeScheme -> Set TypeVar
-freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) (Set.fromList vars)
 
 addCons :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 addCons var ty (tmap, cons) =
