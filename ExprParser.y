@@ -70,7 +70,7 @@ ID {ID $$}
 %%
 
 command:
-  LET var EQ expr EOC { CLet $2 $4 }
+LET var args EQ expr EOC { CLet $2 (List.foldr EFun $5 $3) }
 | LET REC letrecs EOC { CRLets $3 }
 | expr EOC            { CExp $1 }
 | EOF                 { CQuit }
@@ -96,7 +96,7 @@ main_expr:
 
 expr:
   MATCH expr WITH alts         { EMatch $2 $4 }
-| LET var EQ expr IN expr      { ELet $2 $4 $6 }
+| LET var args EQ expr IN expr { ELet $2 (List.foldr EFun $5 $3) $7 }
 | LET REC letrecs IN expr      { ERLets $3 $5 }
 | IF  expr THEN expr ELSE expr { EIf $2 $4 $6 }
 | FUN var args ARROW expr      { EFun $2 (List.foldr EFun $5 $3) }
@@ -104,7 +104,7 @@ expr:
 ;
 
 exprm: 
-  LET var EQ expr IN exprm      { ELet $2 $4 $6 }
+LET var args EQ expr IN exprm   { ELet $2 (List.foldr EFun $5 $3) $7 }
 | LET REC letrecs IN exprm      { ERLets $3 $5 }
 | IF  expr THEN expr ELSE exprm { EIf $2 $4 $6 }
 | FUN var args ARROW exprm      { EFun $2 (List.foldr EFun $5 $3) }
