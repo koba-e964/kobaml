@@ -181,9 +181,9 @@ tyRLetBindings tenv bindings = do
   return (midmap, concat tcs)
 
 typeInfer :: (Monad m, Functor m) => TypeEnv -> Expr -> St m TypeScheme
-typeInfer tenv expr = do
-  (ty, cons) <- gatherConstraints tenv expr
-  let substs = unifyAll cons tmEmpty
+typeInfer !tenv !expr = do
+  (!ty, !cons) <- gatherConstraints tenv expr
+  let !substs = unifyAll cons tmEmpty
   return $ generalize tenv $ substTypeScheme substs ty
 
 tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m TypeEnv
