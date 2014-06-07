@@ -7,7 +7,7 @@ import System.IO
 import CDef
 import Eval
 import ExprParser
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import TypeInf
 
 processExpr :: String -> TypeEnv -> Env -> Expr -> St IO (TypeScheme, Value)
