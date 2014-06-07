@@ -26,7 +26,7 @@ boolType = TConc "bool"
 data TypeVar = TypeVar String deriving (Eq, Ord)
 data TypeCons = TypeEqual Type Type deriving (Eq)
 
-data TypeScheme = Forall [TypeVar] Type
+data TypeScheme = Forall ![TypeVar] !Type
 
 type TypeSubst = Map TypeVar Type
 type TypeEnv = Map String  TypeScheme
@@ -127,5 +127,10 @@ type Env = Map String Value
 -------------------}
 
 data ParseError = ParseError String deriving (Typeable, Show)
-
 instance Exception ParseError
+
+data TypeError = TypeError String deriving (Typeable, Show)
+instance Exception TypeError
+
+data EvalError = EvalError String deriving (Typeable, Show)
+instance Exception EvalError

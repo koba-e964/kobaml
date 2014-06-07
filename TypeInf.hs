@@ -1,13 +1,14 @@
 {-# LANGUAGE BangPatterns, TupleSections #-}
 module TypeInf where
 
+import Control.Exception
+import Control.Monad.State
+import Control.Monad.ST
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.List as List
-import Control.Monad.State
-import Control.Monad.ST
 import Data.STRef
 import Prelude hiding (map)
 
@@ -48,10 +49,10 @@ unify (TList a) (TList b) (map, cons) =
 unify x y _ = unifyError x y
 
 unifyError :: Type -> Type -> a
-unifyError x y = error ("Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)" )
+unifyError x y = throw $ TypeError $ "Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)"
 
 errorRecursive :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> a
-errorRecursive tvar ty mapc = error $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
+errorRecursive tvar ty mapc = throw $ TypeError $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
 
 
 subst :: TypeSubst -> Type -> Type
@@ -89,7 +90,7 @@ gatherConstraints !env !expr =
       _       -> undefined
     EVar (Name name) -> case Map.lookup name env of
       Just ty -> return $ (ty, [])
-      Nothing -> error $ "unbound variable >_<"
+      Nothing -> throw $ TypeError $ "unbound variable: " ++ name
     EAdd e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     ESub e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     EMul e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]

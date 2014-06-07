@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 module Eval where
 
+import Control.Exception
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 
@@ -16,7 +17,7 @@ op2IntBool _ v1 v2 = evalError $ "int required, but got " ++ show v1 ++ ", " ++ 
 
 
 evalError :: String -> a
-evalError str = error $ "Evaluation error:" ++ str
+evalError str = throw $ EvalError $ str
 
 eval :: Env -> Expr -> Value
 eval _   (EConst v) = v
