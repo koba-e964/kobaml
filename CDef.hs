@@ -12,10 +12,10 @@ import qualified Data.Set as Set
     Data types for types
 ------------------}
 data Type = 
-    TConc String -- concrete type
-  | TFun Type Type
-  | TVar TypeVar
-  | TList Type
+    TConc !String -- concrete type
+  | TFun !Type !Type
+  | TVar !TypeVar
+  | TList !Type
   deriving Eq
 
 intType :: Type
@@ -23,8 +23,8 @@ intType = TConc "int"
 boolType :: Type
 boolType = TConc "bool"
 
-data TypeVar = TypeVar String deriving (Eq, Ord)
-data TypeCons = TypeEqual Type Type deriving (Eq)
+data TypeVar = TypeVar !String deriving (Eq, Ord)
+data TypeCons = TypeEqual !Type !Type deriving (Eq)
 
 data TypeScheme = Forall ![TypeVar] !Type
 

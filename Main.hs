@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Main where
 
 import Control.Monad.State
@@ -10,12 +11,12 @@ import qualified Data.Map as Map
 import TypeInf
 
 processExpr :: String -> TypeEnv -> Env -> Expr -> St IO (TypeScheme, Value)
-processExpr name tenv venv expr = do
+processExpr !name !tenv !venv !expr = do
   ty <- typeInfer tenv expr
   lift $ putStrLn $ name ++ " : " ++ show ty
   let result = eval venv expr
   lift $ putStrLn $ " = " ++ show result
-  return (ty, result)
+  ty `seq` result `seq` return (ty, result)
 
 readCmd :: IO (Either ParseError Command)
 readCmd = do
@@ -23,7 +24,7 @@ readCmd = do
   return $ commandOfString line
 
 repl :: TypeEnv -> Env -> St IO ()
-repl tenv venv = do
+repl !tenv !venv = do
     lift $ putStr "> "
     cmdOrErr <- lift $ readCmd
     case cmdOrErr of
@@ -31,7 +32,7 @@ repl tenv venv = do
         Right cmd -> 
             case cmd of
                  CLet (Name name) expr -> do
-                     (ty, result) <- processExpr name tenv venv expr
+                     (!ty, !result) <- processExpr name tenv venv expr
                      let newtenv = Map.insert name ty     tenv
                      let newvenv = Map.insert name result venv
                      repl newtenv newvenv
