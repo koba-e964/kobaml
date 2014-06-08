@@ -64,7 +64,7 @@ subst tmap (TList a) = TList (subst tmap a)
 
 substTypeScheme :: TypeSubst -> TypeScheme -> TypeScheme
 substTypeScheme tmap (Forall vars ty) =
-  let newtmap = List.foldl' (\m x -> Map.delete x m) tmap vars in
+  let newtmap = Set.foldl' (\m x -> Map.delete x m) tmap vars in
     Forall vars (subst newtmap ty)
 
 newType :: (Monad m, Functor m) => St m Type
@@ -83,22 +83,22 @@ gatherConstraints :: (Monad m, Functor m) => TypeEnv -> Expr -> St m (TypeScheme
 gatherConstraints !env !expr =
   case expr of
     EConst val -> case val of
-      VInt _  -> return (Forall [] intType, [])
-      VBool _ -> return (Forall [] boolType, [])
+      VInt _  -> return (fromType intType, [])
+      VBool _ -> return (fromType boolType, [])
       _       -> undefined
     EVar (Name name) -> case Map.lookup name env of
       Just ty -> return $ (ty, [])
       Nothing -> throw $ TypeError $ "unbound variable: " ++ name
-    EAdd e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    ESub e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    EMul e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    EDiv e1 e2 -> fmap (Forall [] intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    ELt  e1 e2 -> fmap (Forall [] boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    EEq  e1 e2 -> fmap (Forall [] boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EAdd e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    ESub e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EMul e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EDiv e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    ELt  e1 e2 -> fmap (fromType boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EEq  e1 e2 -> fmap (fromType boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     EIf ec e1 e2 -> do
       newTy <- newType
       cons <- gatherConsHelper env [(ec, boolType), (e1, newTy), (e2, newTy)] 
-      return (Forall [] newTy, cons)
+      return (fromType newTy, cons)
     ELet (Name name) e1 e2 -> do
       (t1, c1) <- gatherConstraints env e1
       let substs = unifyAll c1:: TypeSubst
@@ -107,35 +107,35 @@ gatherConstraints !env !expr =
       return (t2, c2)
     EFun (Name name) fexpr -> do
       a <- newType
-      (t, c) <- gatherConstraints (Map.insert name (Forall [] a) env) fexpr
+      (t, c) <- gatherConstraints (Map.insert name (fromType a) env) fexpr
       it <- instantiate t
-      return (Forall [] $ TFun a it, c)
+      return (fromType $ TFun a it, c)
     ECons car cdr -> do
       (tcar, ccar) <- gatherConstraints env car
       (tcdr, ccdr) <- gatherConstraints env cdr
       itcar <- instantiate tcar
       itcdr <- instantiate tcdr
-      return (Forall [] itcdr, (TList itcar `typeEqual` itcdr) : ccar ++ ccdr)
+      return (fromType itcdr, (TList itcar `typeEqual` itcdr) : ccar ++ ccdr)
     EApp func arg -> do
       (t1, c1) <- gatherConstraints env func
       (t2, c2) <- gatherConstraints env arg
       a        <- newType
       it1 <- instantiate t1
       it2 <- instantiate t2
-      return (Forall [] a, (it1 `typeEqual` TFun it2 a) : c1 ++ c2)
+      return (fromType a, (it1 `typeEqual` TFun it2 a) : c1 ++ c2)
     EMatch mexpr ls -> do
       results <- forM ls (gatherConstraintsPatExpr env)
       (ty, cons) <- gatherConstraints env mexpr
       e <- newType
       ity <- instantiate ty
-      return (Forall [] e, concat (List.map ( \ (pty, ety, pcons) -> (ity `typeEqual` pty) : (e `typeEqual` ety) : pcons) results) ++ cons)
+      return (fromType e, concat (List.map ( \ (pty, ety, pcons) -> (ity `typeEqual` pty) : (e `typeEqual` ety) : pcons) results) ++ cons)
     ERLets bindings lexpr -> do
       (newtenv, cons) <- tyRLetBindings env bindings
       (tye, ce) <- gatherConstraints newtenv lexpr
       return (tye, cons ++ ce)
     ENil -> do
       (TVar a) <- newType
-      return $ (Forall [a] $ TList (TVar a), [])
+      return $ (Forall (Set.singleton a) $ TList (TVar a), [])
 
 gatherConsHelper :: (Monad m, Functor m) => TypeEnv -> [(Expr, Type)] -> St m [TypeCons]
 
@@ -158,7 +158,7 @@ gatherConstraintsPat (PConst (VBool _)) = return (boolType, [], Map.empty)
 gatherConstraintsPat (PConst _      ) = error "(>_<) < weird... invalid const pattern..."
 gatherConstraintsPat (PVar (Name name)) = do
   a <- newType
-  return (a, [], Map.singleton name (Forall [] a))
+  return (a, [], Map.singleton name (fromType a))
 gatherConstraintsPat PNil = do
   a <- newType
   return (TList a, [] , Map.empty)
@@ -173,9 +173,9 @@ tyRLetBindings tenv bindings = do
     a <- newType
     b <- newType
     return (fname, vname, fexpr, a, b)
-  let midmap = List.foldr ( \ (fname, _, _, a, b) -> Map.insert fname (Forall [] $ TFun a b)) tenv defmap
+  let midmap = List.foldr ( \ (fname, _, _, a, b) -> Map.insert fname (fromType $ TFun a b)) tenv defmap
   tcs <- forM defmap $ \ (_, vname, fexpr, a, b) -> do
-    (ty, con) <- gatherConstraints (Map.insert vname (Forall [] a) midmap) fexpr
+    (ty, con) <- gatherConstraints (Map.insert vname (fromType a) midmap) fexpr
     inst <- instantiate ty
     return $ (b `typeEqual` inst) : con
   return (midmap, concat tcs)
@@ -196,11 +196,11 @@ generalize :: TypeEnv -> TypeScheme -> TypeScheme
 generalize env tysch@(Forall vars tyy) =
     let free = freeVarsTypeScheme tysch
         wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env in
-    Forall (Set.toList wholefree ++ vars) tyy
+    Forall (Set.union wholefree vars) tyy
 
 instantiate :: (Monad m, Functor m) => TypeScheme -> St m Type
 instantiate (Forall vars ty) = do
-    varmap <- forM vars $ \var -> fmap (var,) newType
+    varmap <- forM (Set.toList vars) $ \var -> fmap (var,) newType
     return $ runST $ do
       x <- newSTRef ty
       forM_ varmap $ \ (var, cvarty) -> do

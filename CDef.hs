@@ -26,7 +26,7 @@ boolType = TConc "bool"
 data TypeVar = TypeVar !String deriving (Eq, Ord)
 data TypeCons = TypeEqual !Type !Type deriving (Eq)
 
-data TypeScheme = Forall ![TypeVar] !Type
+data TypeScheme = Forall !(Set TypeVar) !Type
 
 type TypeSubst = Map TypeVar Type
 type TypeEnv = Map String  TypeScheme
@@ -48,7 +48,9 @@ instance Show Type where
   show (TList a) = "[" ++ show a ++ "]"
 
 instance Show TypeScheme where
-  show (Forall bvs ty) = "forall" ++ concat (List.map (\x -> " '" ++ show x) bvs) ++ ". " ++ show ty
+  show (Forall bvs ty) =
+    "forall" ++ concat (List.map (\x -> " '" ++ show x) (Set.toList bvs)) ++
+      ". " ++ show ty
 
 tmEmpty :: TypeSubst
 tmEmpty = Map.empty
@@ -56,6 +58,9 @@ tmEmpty = Map.empty
 teEmpty :: TypeEnv
 teEmpty = Map.empty
 
+-- | Generalizes @ty@ with no quantification.
+fromType :: Type -> TypeScheme
+fromType ty = Forall Set.empty ty
 
 freeVars :: Type -> Set TypeVar {- free variables in type -}
 freeVars (TConc _) = Set.empty
@@ -64,7 +69,7 @@ freeVars (TVar var) = Set.singleton var
 freeVars (TList a) = freeVars a
 
 freeVarsTypeScheme :: TypeScheme -> Set TypeVar
-freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) (Set.fromList vars)
+freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) vars
 
 {------------------
     Data Types for evaluation
