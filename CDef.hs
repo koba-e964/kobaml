@@ -48,9 +48,11 @@ instance Show Type where
   show (TList a) = "[" ++ show a ++ "]"
 
 instance Show TypeScheme where
-  show (Forall bvs ty) =
-    "forall" ++ concat (List.map (\x -> " '" ++ show x) (Set.toList bvs)) ++
-      ". " ++ show ty
+  show (Forall bvs ty)
+    | Set.null bvs = show ty
+    | otherwise    =
+      "forall" ++ concat (List.map (\x -> " '" ++ show x) (Set.toList bvs)) ++
+        ". " ++ show ty
 
 tmEmpty :: TypeSubst
 tmEmpty = Map.empty
