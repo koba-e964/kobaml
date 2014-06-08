@@ -22,8 +22,8 @@ addCons var ty (tmap, cons) =
       newcons = List.map (\(TypeEqual ty1 ty2) -> inc ty1 `typeEqual` inc ty2) cons in
     (conv, newcons)
 
-unifyAll :: [TypeCons] -> TypeSubst -> TypeSubst
-unifyAll cons map = sub map cons where
+unifyAll :: [TypeCons] -> TypeSubst
+unifyAll cons = sub tmEmpty cons where
          sub m [] = m
          sub m ((TypeEqual ty1 ty2):rest) = let (newm, newrest) = unify ty1 ty2 (m, rest) in sub newm newrest
 
@@ -101,7 +101,7 @@ gatherConstraints !env !expr =
       return (Forall [] newTy, cons)
     ELet (Name name) e1 e2 -> do
       (t1, c1) <- gatherConstraints env e1
-      let substs = unifyAll c1 tmEmpty :: TypeSubst
+      let substs = unifyAll c1:: TypeSubst
       let newtenv = fmap (generalize env . substTypeScheme substs) env :: TypeEnv
       (t2, c2) <- gatherConstraints (Map.insert name (substTypeScheme substs t1) newtenv) e2
       return (t2, c2)
@@ -183,13 +183,13 @@ tyRLetBindings tenv bindings = do
 typeInfer :: (Monad m, Functor m) => TypeEnv -> Expr -> St m TypeScheme
 typeInfer !tenv !expr = do
   (!ty, !cons) <- gatherConstraints tenv expr
-  let !substs = unifyAll cons tmEmpty
+  let !substs = unifyAll cons
   return $ generalize tenv $ substTypeScheme substs ty
 
 tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m TypeEnv
 tyRLetBindingsInfer tenv bindings = do
   (newtenv, cons) <- tyRLetBindings tenv bindings
-  let tySubst = unifyAll cons tmEmpty
+  let tySubst = unifyAll cons
   return $ fmap (generalize tenv . substTypeScheme tySubst) newtenv
 
 generalize :: TypeEnv -> TypeScheme -> TypeScheme
