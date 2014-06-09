@@ -9,7 +9,6 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import Data.STRef
 import Prelude hiding (map)
-import Debug.Trace
 
 import CDef
 
@@ -197,15 +196,15 @@ tyRLetBindingsInfer tenv bindings = do
 
 generalize :: TypeEnv -> TypeScheme -> TypeScheme
 generalize env tysch@(Forall vars tyy) =
-    let varlist = List.map TypeVar $ List.map (:[]) ['a'..'z'] ++ List.map (\x -> "t" ++ show x) [0..]
+    let varlist = List.map TypeVar $ List.map (:[]) ['a'..'z'] ++ List.map (\x -> "t" ++ show x) [(0 :: Integer)..]
         free = freeVarsTypeScheme tysch
         wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env
         freeEnv = Map.foldl' (\f ty -> Set.union f (freeVarsTypeScheme ty)) Set.empty env
         forbidden = Set.union (freeVars tyy) freeEnv
         replace (s, ty) v= let Just newv = List.find (\x -> Set.notMember x forbidden && Set.notMember x s) varlist in (Set.insert newv s, subst (Map.singleton v (TVar newv)) ty)
-        (s, ty) = Set.foldl' replace (vars, tyy) wholefree
+        (ss, tyty) = Set.foldl' replace (vars, tyy) wholefree
       in
-    Forall s ty
+    Forall ss tyty
 
 instantiate :: (Monad m, Functor m) => TypeScheme -> St m Type
 instantiate (Forall vars ty) = do
