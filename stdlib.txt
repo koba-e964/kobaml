@@ -1,0 +1,7 @@
+let fst p = match p with (x, y) -> x;;
+let snd p = match p with (x, y) -> y;;
+let rec iterate f x = x :: iterate f (f x);;
+let rec foldl op e ls = match ls with [] -> e | x :: xs -> foldl op (op e x) xs;;
+let head ls = match ls with x :: xs -> x;;
+let tail ls = match ls with x :: xs -> xs;;
+let rec last ls = match ls with x :: [] -> x | x :: xs -> last xs;;
