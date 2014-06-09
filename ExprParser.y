@@ -63,6 +63,7 @@ LPAR {LPAR}
 RPAR {RPAR}
 EOC {EOC}
 EOF {EOF}
+',' {COMMA}
 INT {INT $$}
 ID {ID $$}
 
@@ -88,6 +89,7 @@ simple_pat:
 | FALSE         { PConst (VBool False) }
 | nil           { PNil }
 | LPAR pat RPAR { $2 }
+| LPAR pat ',' pat RPAR { PPair $2 $4 }
 ;
 
 main_expr: 
@@ -200,6 +202,7 @@ simple_expr:
 | TRUE              { mytrue }
 | FALSE             { myfalse } 
 | LPAR expr RPAR    { $2 }
+| LPAR expr ',' expr RPAR { EPair $2 $4 }
 | nil               { ENil }
 ;
 

@@ -30,7 +30,7 @@ data Token
     | OR
     | AND
     | LT | LE | GT | GE
-    | LPAR | RPAR
+    | LPAR | RPAR | COMMA
     | EOC
     | EOF
     deriving (Eq, Show)

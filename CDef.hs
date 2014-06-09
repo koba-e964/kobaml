@@ -16,6 +16,7 @@ data Type =
   | TFun !Type !Type
   | TVar !TypeVar
   | TList !Type
+  | TPair !Type !Type
   deriving Eq
 
 intType :: Type
@@ -46,7 +47,7 @@ instance Show Type where
     _          -> show x ++ " -> " ++ show y
   show (TVar v) = "'" ++ show v
   show (TList a) = "[" ++ show a ++ "]"
-
+  show (TPair a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
 instance Show TypeScheme where
   show (Forall bvs ty)
     | Set.null bvs = show ty
@@ -69,6 +70,7 @@ freeVars (TConc _) = Set.empty
 freeVars (TFun ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
 freeVars (TVar var) = Set.singleton var
 freeVars (TList a) = freeVars a
+freeVars (TPair ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
 
 freeVarsTypeScheme :: TypeScheme -> Set TypeVar
 freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) vars
@@ -84,6 +86,7 @@ data Value = VInt Int
            | VFun Name Env Expr
 	   | VRFun Int [(Name, Name, Expr)] Env
            | VCons Value Value
+           | VPair Value Value
            | VNil
            deriving (Eq)
 
@@ -96,6 +99,7 @@ instance (Show Value) where
     sub !v VNil = show v
     sub !v1 (VCons v2 v3) = show v1 ++ ", " ++ sub v2 v3
     sub _  _ = error "(>_<) < weird... the last cell of the list is not nil..."
+  show (VPair a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
   show VNil = "[]"
 data Expr  = EConst Value
            | EVar Name
@@ -112,11 +116,13 @@ data Expr  = EConst Value
            | EFun Name Expr
            | EApp Expr Expr
            | ECons Expr Expr
+           | EPair Expr Expr
            | ENil
            deriving (Eq, Show)
 data Pat   = PConst Value
            | PVar   Name
            | PCons  Pat Pat
+           | PPair  Pat Pat
            | PNil
            deriving (Eq, Show)
 

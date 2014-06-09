@@ -43,6 +43,7 @@ eval env (EMatch expr patex) = fromMaybe (evalError "Matching not exhaustive") $
 eval env (EFun name expr) = VFun name env expr
 eval env (EApp func argv) = evalApp (eval env func) (eval env argv)
 eval env (ECons e1 e2) = VCons (eval env e1) (eval env e2)
+eval env (EPair e1 e2) = VPair (eval env e1) (eval env e2)
 eval _   ENil          = VNil
 
 evalApp :: Value -> Value -> Value
@@ -76,6 +77,12 @@ tryMatch !val !env !pat = case pat of
       ex <- tryMatch vcar env pcar
       ey <- tryMatch vcdr env pcdr
       return $! Map.union ey (Map.union ex env)
+    _ 	            -> Nothing
+  PPair pfst psnd   -> case val of
+    VPair vfst vsnd -> do
+      ex <- tryMatch vfst env pfst
+      ey <- tryMatch vsnd env psnd
+      return $! Map.union ey $ Map.union ex env
     _ 	            -> Nothing
   PNil              -> case val of
     VNil  -> Just env

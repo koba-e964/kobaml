@@ -44,6 +44,8 @@ unify (TFun a1 b1) (TFun a2 b2) (map, cons) =
   (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
 unify (TList a) (TList b) (map, cons) =
   (map, (a `typeEqual` b) : cons)
+unify (TPair a1 b1) (TPair a2 b2) (map, cons) =
+  (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
 unify x y _ = unifyError x y
 
 unifyError :: Type -> Type -> a
@@ -61,6 +63,7 @@ subst tmap (TVar v) =
 subst tmap (TFun x y) = TFun (subst tmap x) (subst tmap y)
 subst _    (TConc x)  = TConc x
 subst tmap (TList a) = TList (subst tmap a)
+subst tmap (TPair x y) = TPair (subst tmap x) (subst tmap y)
 
 substTypeScheme :: TypeSubst -> TypeScheme -> TypeScheme
 substTypeScheme tmap (Forall vars ty) =
@@ -135,6 +138,12 @@ gatherConstraints !env !expr =
       (newtenv, cons) <- tyRLetBindings env bindings
       (tye, ce) <- gatherConstraints newtenv lexpr
       return (tye, cons ++ ce)
+    EPair efst esnd -> do
+      (tfst, cfst) <- gatherConstraints env efst
+      (tsnd, csnd) <- gatherConstraints env esnd
+      t1 <- instantiate tfst
+      t2 <- instantiate tsnd
+      return (fromType $ TPair t1 t2, cfst ++ csnd)
     ENil -> do
       (TVar a) <- newType
       return $ (Forall (Set.singleton a) $ TList (TVar a), [])
@@ -168,6 +177,10 @@ gatherConstraintsPat (PCons pcar pcdr) = do
   (tcar, ccar, ecar) <- gatherConstraintsPat pcar
   (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
   return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr, Map.union ecar ecdr)
+gatherConstraintsPat (PPair pcar pcdr) = do
+  (tcar, ccar, ecar) <- gatherConstraintsPat pcar
+  (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
+  return (TPair tcar tcdr, ccar ++ ccdr, Map.union ecar ecdr)
 
 tyRLetBindings :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m (TypeEnv, [TypeCons])
 tyRLetBindings tenv bindings = do
