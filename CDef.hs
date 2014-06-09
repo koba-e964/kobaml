@@ -84,7 +84,7 @@ newtype Name = Name String deriving (Eq, Show)
 data Value = VInt Int
            | VBool Bool
            | VFun Name Env Expr
-	   | VRFun Int [(Name, Name, Expr)] Env
+	   | VRFun Int [(Name, Expr)] Env
            | VCons Value Value
            | VPair Value Value
            | VNil
@@ -111,7 +111,7 @@ data Expr  = EConst Value
            | EEq  Expr Expr
 	   | EIf Expr Expr Expr
            | ELet Name Expr Expr
-           | ERLets [(Name, Name, Expr)] Expr 
+           | ERLets [(Name, Expr)] Expr 
            | EMatch Expr [(Pat, Expr)]
            | EFun Name Expr
            | EApp Expr Expr
@@ -128,7 +128,7 @@ data Pat   = PConst Value
 
 data Command
   = CLet    Name Expr 
-  | CRLets  [(Name, Name, Expr)]  
+  | CRLets  [(Name, Expr)]  
   | CExp    Expr 
   | CQuit
   deriving (Eq, Show)

@@ -51,15 +51,15 @@ evalApp fval aval =
   case fval of
     VFun (Name param) fenv expr -> eval (Map.insert param aval fenv) expr
     VRFun ind bindings fenv     ->
-      let (_, Name arg, expr) = bindings !! ind
-      	  newenv       	      = Map.insert arg aval (getNewEnvInRLets bindings fenv) in
-      eval newenv expr
+      let (_, expr) = bindings !! ind
+      	  newenv       	      = getNewEnvInRLets bindings fenv in
+      evalApp (eval newenv expr) aval
     others                      -> evalError $ "app: not a function: " ++ show others
 
-getNewEnvInRLets :: [(Name, Name, Expr)] -> Env -> Env
+getNewEnvInRLets :: [(Name, Expr)] -> Env -> Env
 getNewEnvInRLets bindings oldenv = sub oldenv bindings 0 where
   sub env [] _ = env
-  sub env ((Name fname, _, _) : rest) num =
+  sub env ((Name fname, _) : rest) num =
     sub (Map.insert fname (VRFun num bindings env) env) rest (num + 1)
 
 tryMatchAll :: Value -> Env -> [(Pat, Expr)] -> Maybe Value

@@ -182,17 +182,16 @@ gatherConstraintsPat (PPair pcar pcdr) = do
   (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
   return (TPair tcar tcdr, ccar ++ ccdr, Map.union ecar ecdr)
 
-tyRLetBindings :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m (TypeEnv, [TypeCons])
+tyRLetBindings :: (Monad m, Functor m) => TypeEnv -> [(Name, Expr)] -> St m (TypeEnv, [TypeCons])
 tyRLetBindings tenv bindings = do
-  defmap <- forM bindings $ \(Name fname, Name vname, fexpr) -> do
+  defmap <- forM bindings $ \(Name fname, fexpr) -> do
     a <- newType
-    b <- newType
-    return (fname, vname, fexpr, a, b)
-  let midmap = List.foldr ( \ (fname, _, _, a, b) -> Map.insert fname (fromType $ TFun a b)) tenv defmap
-  tcs <- forM defmap $ \ (_, vname, fexpr, a, b) -> do
-    (ty, con) <- gatherConstraints (Map.insert vname (fromType a) midmap) fexpr
+    return (fname, fexpr, a)
+  let midmap = List.foldr ( \ (fname, _, a) -> Map.insert fname (fromType $ a)) tenv defmap
+  tcs <- forM defmap $ \ (_, fexpr, a) -> do
+    (ty, con) <- gatherConstraints midmap fexpr
     inst <- instantiate ty
-    return $ (b `typeEqual` inst) : con
+    return $ (a `typeEqual` inst) : con
   return (midmap, concat tcs)
 
 typeInfer :: (Monad m, Functor m) => TypeEnv -> Expr -> St m TypeScheme
@@ -201,7 +200,7 @@ typeInfer !tenv !expr = do
   let !substs = unifyAll cons
   return $ generalize tenv $ substTypeScheme substs ty
 
-tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Name, Expr)] -> St m TypeEnv
+tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Expr)] -> St m TypeEnv
 tyRLetBindingsInfer tenv bindings = do
   (newtenv, cons) <- tyRLetBindings tenv bindings
   let tySubst = unifyAll cons

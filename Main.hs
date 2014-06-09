@@ -39,7 +39,7 @@ repl !tenv !venv = do
                  CRLets bindings       -> do
                      newtenv <- tyRLetBindingsInfer tenv bindings
                      let newvenv = getNewEnvInRLets bindings venv
-                     lift $ forM_ bindings $ \(Name fname, _, _) -> do
+                     lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
                      repl newtenv newvenv

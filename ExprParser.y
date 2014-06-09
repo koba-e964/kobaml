@@ -119,7 +119,7 @@ letrecs:
 ;
 
 letrec:
-  var var args EQ expr { ($1,$2, List.foldr EFun $5 $3) }
+  var args EQ expr { ($1, List.foldr EFun $4 $2) }
 ;
 
 args:
