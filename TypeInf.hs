@@ -9,6 +9,7 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 import Data.STRef
 import Prelude hiding (map)
+import Debug.Trace
 
 import CDef
 
@@ -109,7 +110,9 @@ gatherConstraints !env !expr =
       a <- newType
       (t, c) <- gatherConstraints (Map.insert name (fromType a) env) fexpr
       it <- instantiate t
-      return (fromType $ TFun a it, c)
+      let substs = unifyAll c
+      let ty = subst substs $ TFun a it
+      return (generalize env (fromType ty), c)
     ECons car cdr -> do
       (tcar, ccar) <- gatherConstraints env car
       (tcdr, ccdr) <- gatherConstraints env cdr
@@ -194,9 +197,15 @@ tyRLetBindingsInfer tenv bindings = do
 
 generalize :: TypeEnv -> TypeScheme -> TypeScheme
 generalize env tysch@(Forall vars tyy) =
-    let free = freeVarsTypeScheme tysch
-        wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env in
-    Forall (Set.union wholefree vars) tyy
+    let varlist = List.map TypeVar $ List.map (:[]) ['a'..'z'] ++ List.map (\x -> "t" ++ show x) [0..]
+        free = freeVarsTypeScheme tysch
+        wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env
+        freeEnv = Map.foldl' (\f ty -> Set.union f (freeVarsTypeScheme ty)) Set.empty env
+        forbidden = Set.union (freeVars tyy) freeEnv
+        replace (s, ty) v= let Just newv = List.find (\x -> Set.notMember x forbidden && Set.notMember x s) varlist in (Set.insert newv s, subst (Map.singleton v (TVar newv)) ty)
+        (s, ty) = Set.foldl' replace (vars, tyy) wholefree
+      in
+    Forall s ty
 
 instantiate :: (Monad m, Functor m) => TypeScheme -> St m Type
 instantiate (Forall vars ty) = do
