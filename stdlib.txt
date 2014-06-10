@@ -25,3 +25,5 @@ let split_at n ls = (take n ls, drop n ls);;
 let rec take_while p ls = match ls with [] -> [] | x :: xs -> if p x  then x :: take_while p xs else [];;
 let rec drop_while p ls = match ls with [] -> [] | x :: xs -> if p x  then drop_while p xs else x :: xs;;
 let rec elem eq e ls = match ls with [] -> false | x :: xs -> if eq e x then true else elem eq e xs;;
+let rec zip ls1 ls2 = match ls1 with [] -> [] | x :: xs -> match ls2 with y :: ys -> (x, y) :: zip xs ys | [] -> [];;
+let rec zip_with op ls1 ls2 = match ls1 with [] -> [] | x :: xs -> match ls2 with y :: ys -> op x y :: zip_with op xs ys | [] -> [];;
