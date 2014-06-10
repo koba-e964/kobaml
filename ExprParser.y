@@ -230,5 +230,6 @@ PLUS   { op EAdd }
 |DIV   { op EDiv }
 |AND   { op myand}
 |OR    { op myor }
-|EQ    { op EEq }
+|EQ    { op EEq  }
+|','   { op EPair}
 ;
