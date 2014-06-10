@@ -5,7 +5,7 @@ import Prelude hiding (EQ, LT, GT)
 data Token 
     = INT Int
     | ID String
-    | EQ
+    | EQ | NEQ
     | LET
     | REC
     | DAND

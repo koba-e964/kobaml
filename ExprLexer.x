@@ -1,4 +1,5 @@
 {
+{-# OPTIONS_GHC -w #-}
 module ExprLexer where
 
 import CDef
@@ -36,6 +37,7 @@ tokens :-
   "-"         { \_->MINUS }
   "*"         { \_->TIMES }
   "/"         { \_->DIV }
+  "/="        { \_->NEQ }
   "->"        { \_->ARROW } 
   "|"         { \_->BAR } 
   "<"         { \_->LT }

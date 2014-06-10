@@ -36,6 +36,7 @@ commandOfString = exparse . alexScanTokens
 %token
 LET {LET}
 EQ {EQ}
+NEQ {NEQ}
 REC {REC}
 DAND {DAND}
 IN {IN}
@@ -168,6 +169,7 @@ expr3:
 | expr4 LT expr4    { ELt $1 $3 }
 | expr4 LE expr4    { mynot (ELt $3 $1) }
 | expr4 EQ expr4    { EEq $1 $3 } 
+| expr4 EQ expr4    { mynot (EEq $1 $3) } 
 | expr4             { $1 }
 ;
 
@@ -232,5 +234,6 @@ PLUS   { op EAdd }
 |AND   { op myand}
 |OR    { op myor }
 |EQ    { op EEq  }
+|NEQ   { op (\x y -> mynot (EEq x y)) }
 |','   { op EPair}
 ;
