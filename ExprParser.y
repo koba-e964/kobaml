@@ -16,6 +16,8 @@ mynot e = EIf e myfalse mytrue
 myand e1 e2 = EIf e1 e2 myfalse 
 myor e1 e2  = EIf e1 mytrue e2
 
+op :: (Expr -> Expr -> Expr) -> Expr
+op f = EFun (Name "x") (EFun (Name "y") (f (EVar (Name "x")) (EVar (Name "y"))))
 
 parseError :: [Token] -> Either ParseError a
 parseError toks = Left $ ParseError $ "parseError: " ++ show toks
@@ -201,6 +203,7 @@ simple_expr:
 | ID                { EVar   (Name $1) }
 | TRUE              { mytrue }
 | FALSE             { myfalse } 
+| LPAR op RPAR      { $2 }
 | LPAR expr RPAR    { $2 }
 | LPAR expr ',' expr RPAR { EPair $2 $4 }
 | list              { $1 }
@@ -215,6 +218,17 @@ list_cont:
   expr                  { ECons $1 ENil }
 | expr ',' list_cont  { ECons $1 $3 }
 ;
+
 nil: 
   LBRACKET RBRACKET {}
+;
+
+op:
+PLUS   { op EAdd }
+|MINUS { op ESub }
+|TIMES { op EMul }
+|DIV   { op EDiv }
+|AND   { op myand}
+|OR    { op myor }
+|EQ    { op EEq }
 ;
