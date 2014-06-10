@@ -81,59 +81,54 @@ newTypeVar = do
   put (v+1)
   return $ TypeVar $ "t" ++ show v
 
-gatherConstraints :: (Monad m, Functor m) => TypeEnv -> Expr -> St m (TypeScheme, [TypeCons])
+gatherConstraints :: (Monad m, Functor m) => TypeEnv -> Expr -> St m (Type, [TypeCons])
 
 gatherConstraints !env !expr =
   case expr of
     EConst val -> case val of
-      VInt _  -> return (fromType intType, [])
-      VBool _ -> return (fromType boolType, [])
+      VInt _  -> return (intType, [])
+      VBool _ -> return (boolType, [])
       _       -> undefined
     EVar (Name name) -> case Map.lookup name env of
-      Just ty -> return $ (ty, [])
+      Just ty -> fmap (, []) $ instantiate ty
       Nothing -> throw $ TypeError $ "unbound variable: " ++ name
-    EAdd e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    ESub e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    EMul e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    EDiv e1 e2 -> fmap (fromType intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    ELt  e1 e2 -> fmap (fromType boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
-    EEq  e1 e2 -> fmap (fromType boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EAdd e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    ESub e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EMul e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EDiv e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    ELt  e1 e2 -> fmap (boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
+    EEq  e1 e2 -> fmap (boolType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     EIf ec e1 e2 -> do
       newTy <- newType
       cons <- gatherConsHelper env [(ec, boolType), (e1, newTy), (e2, newTy)] 
-      return (fromType newTy, cons)
+      return (newTy, cons)
     ELet (Name name) e1 e2 -> do
       (t1, c1) <- gatherConstraints env e1
       let substs = unifyAll c1:: TypeSubst
-      let newtenv = fmap (generalize env . substTypeScheme substs) env :: TypeEnv
-      (t2, c2) <- gatherConstraints (Map.insert name (substTypeScheme substs t1) newtenv) e2
-      return (t2, c2)
+      let etysch = generalize env $ subst substs t1
+      let newtenv = fmap (generalizeTypeScheme env . substTypeScheme substs) env :: TypeEnv
+      (t2, c2) <- gatherConstraints (Map.insert name etysch newtenv) e2
+      return (t2, c1 ++ c2)
     EFun (Name name) fexpr -> do
       a <- newType
       (t, c) <- gatherConstraints (Map.insert name (fromType a) env) fexpr
-      it <- instantiate t
       let substs = unifyAll c
-      let ty = subst substs $ TFun a it
-      return (generalize env (fromType ty), c)
+      let ty = subst substs $ TFun a t
+      return (ty, c)
     ECons car cdr -> do
       (tcar, ccar) <- gatherConstraints env car
       (tcdr, ccdr) <- gatherConstraints env cdr
-      itcar <- instantiate tcar
-      itcdr <- instantiate tcdr
-      return (fromType itcdr, (TList itcar `typeEqual` itcdr) : ccar ++ ccdr)
+      return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr)
     EApp func arg -> do
       (t1, c1) <- gatherConstraints env func
       (t2, c2) <- gatherConstraints env arg
       a        <- newType
-      it1 <- instantiate t1
-      it2 <- instantiate t2
-      return (fromType a, (it1 `typeEqual` TFun it2 a) : c1 ++ c2)
+      return (a, (t1 `typeEqual` TFun t2 a) : c1 ++ c2)
     EMatch mexpr ls -> do
       results <- forM ls (gatherConstraintsPatExpr env)
       (ty, cons) <- gatherConstraints env mexpr
       e <- newType
-      ity <- instantiate ty
-      return (fromType e, concat (List.map ( \ (pty, ety, pcons) -> (ity `typeEqual` pty) : (e `typeEqual` ety) : pcons) results) ++ cons)
+      return (e, concat (List.map ( \ (pty, ety, pcons) -> (ty `typeEqual` pty) : (e `typeEqual` ety) : pcons) results) ++ cons)
     ERLets bindings lexpr -> do
       (newtenv, cons) <- tyRLetBindings env bindings
       (tye, ce) <- gatherConstraints newtenv lexpr
@@ -141,27 +136,23 @@ gatherConstraints !env !expr =
     EPair efst esnd -> do
       (tfst, cfst) <- gatherConstraints env efst
       (tsnd, csnd) <- gatherConstraints env esnd
-      t1 <- instantiate tfst
-      t2 <- instantiate tsnd
-      return (fromType $ TPair t1 t2, cfst ++ csnd)
+      return (TPair tfst tsnd, cfst ++ csnd)
     ENil -> do
-      (TVar a) <- newType
-      return $ (Forall (Set.singleton a) $ TList (TVar a), [])
+      a <- newType
+      return $ (TList a, [])
 
 gatherConsHelper :: (Monad m, Functor m) => TypeEnv -> [(Expr, Type)] -> St m [TypeCons]
 
 gatherConsHelper tenv ls = fmap List.concat $ sequence $ List.map f ls where
   f (expr, tyEx) = do
     (tyAc, cons) <-  gatherConstraints tenv expr
-    ityAc <- instantiate tyAc
-    return $ (tyEx `typeEqual` ityAc) : cons
+    return $ (tyEx `typeEqual` tyAc) : cons
 
 gatherConstraintsPatExpr :: (Monad m, Functor m) => TypeEnv -> (Pat, Expr) -> St m (Type, Type, [TypeCons])
 gatherConstraintsPatExpr tenv (pat, expr) = do
   (ty, cons, penv) <- gatherConstraintsPat pat
   (tye, econs) <- gatherConstraints (Map.union penv tenv) expr
-  itye <- instantiate tye
-  return (ty, itye, econs ++ cons)
+  return (ty, tye, econs ++ cons)
 
 gatherConstraintsPat :: (Monad m, Functor m) => Pat -> St m (Type, [TypeCons], TypeEnv)
 gatherConstraintsPat (PConst (VInt _)) = return (intType, [], Map.empty)
@@ -190,24 +181,26 @@ tyRLetBindings tenv bindings = do
   let midmap = List.foldr ( \ (fname, _, a) -> Map.insert fname (fromType $ a)) tenv defmap
   tcs <- forM defmap $ \ (_, fexpr, a) -> do
     (ty, con) <- gatherConstraints midmap fexpr
-    inst <- instantiate ty
-    return $ (a `typeEqual` inst) : con
+    return $ (a `typeEqual` ty) : con
   return (midmap, concat tcs)
 
 typeInfer :: (Monad m, Functor m) => TypeEnv -> Expr -> St m TypeScheme
 typeInfer !tenv !expr = do
   (!ty, !cons) <- gatherConstraints tenv expr
   let !substs = unifyAll cons
-  return $ generalize tenv $ substTypeScheme substs ty
+  return $ generalize tenv $ subst substs ty
 
 tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Expr)] -> St m TypeEnv
 tyRLetBindingsInfer tenv bindings = do
   (newtenv, cons) <- tyRLetBindings tenv bindings
   let tySubst = unifyAll cons
-  return $ fmap (generalize tenv . substTypeScheme tySubst) newtenv
+  return $ fmap (generalizeTypeScheme tenv . substTypeScheme tySubst) newtenv
 
-generalize :: TypeEnv -> TypeScheme -> TypeScheme
-generalize env tysch@(Forall vars tyy) =
+generalize :: TypeEnv -> Type -> TypeScheme
+generalize !tenv !ty = generalizeTypeScheme tenv (fromType ty)
+
+generalizeTypeScheme :: TypeEnv -> TypeScheme -> TypeScheme
+generalizeTypeScheme env tysch@(Forall vars tyy) =
     let varlist = List.map TypeVar $ List.map (:[]) ['a'..'z'] ++ List.map (\x -> "t" ++ show x) [(0 :: Integer)..]
         free = freeVarsTypeScheme tysch
         wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env
