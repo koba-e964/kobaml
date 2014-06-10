@@ -1,4 +1,5 @@
 {
+{-# OPTIONS_GHC -w #-}
 {- This parser was originally provided by IS, then modified by koba-e964.-}
 module ExprParser where
 
