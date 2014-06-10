@@ -203,9 +203,18 @@ simple_expr:
 | FALSE             { myfalse } 
 | LPAR expr RPAR    { $2 }
 | LPAR expr ',' expr RPAR { EPair $2 $4 }
+| list              { $1 }
 | nil               { ENil }
 ;
 
+list:
+  LBRACKET list_cont RBRACKET { $2 }
+;
+
+list_cont:
+  expr                  { ECons $1 ENil }
+| expr ',' list_cont  { ECons $1 $3 }
+;
 nil: 
   LBRACKET RBRACKET {}
 ;
