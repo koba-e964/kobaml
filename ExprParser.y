@@ -25,10 +25,14 @@ parseError toks = Left $ ParseError $ "parseError: " ++ show toks
 
 commandOfString :: String -> Either ParseError Command
 commandOfString = exparse . alexScanTokens
+
+commandsOfString :: String -> Either ParseError [Command]
+commandsOfString = exParseCmds . alexScanTokens
 }
 
 
-%name      exparse
+%name      exparse     command
+%name      exParseCmds commands
 %tokentype {Token}
 %error     {parseError} 
 %monad {Either ParseError} {(>>=)} {Right}
@@ -73,6 +77,11 @@ ID {ID $$}
 
 
 %%
+
+commands:
+  command          { [$1] }
+| command commands { $1 : $2 }
+;
 
 command:
 LET var args EQ expr EOC { CLet $2 (List.foldr EFun $5 $3) }
