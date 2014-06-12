@@ -79,8 +79,13 @@ ID {ID $$}
 %%
 
 commands:
-  command          { [$1] }
-| command commands { $1 : $2 }
+  command_f          { [$1] }
+| command_f commands { $1 : $2 }
+;
+
+command_f:
+LET var args EQ expr EOC { CLet $2 (List.foldr EFun $5 $3) }
+| LET REC letrecs EOC { CRLets $3 }
 ;
 
 command:
@@ -105,9 +110,9 @@ simple_pat:
 | LPAR pat ',' pat RPAR { PPair $2 $4 }
 ;
 
-main_expr: 
-  expr EOF { $1 }
-;
+-- main_expr: 
+--  expr EOF { $1 }
+-- ;
 
 expr:
   MATCH expr WITH alts         { EMatch $2 $4 }
@@ -178,7 +183,7 @@ expr3:
 | expr4 LT expr4    { ELt $1 $3 }
 | expr4 LE expr4    { mynot (ELt $3 $1) }
 | expr4 EQ expr4    { EEq $1 $3 } 
-| expr4 EQ expr4    { mynot (EEq $1 $3) } 
+| expr4 NEQ expr4    { mynot (EEq $1 $3) } 
 | expr4             { $1 }
 ;
 
@@ -215,7 +220,7 @@ simple_expr:
 | ID                { EVar   (Name $1) }
 | TRUE              { mytrue }
 | FALSE             { myfalse } 
-| LPAR op RPAR      { $2 }
+| LPAR op RPAR      { op $2 }
 | LPAR expr RPAR    { $2 }
 | LPAR expr ',' expr RPAR { EPair $2 $4 }
 | list              { $1 }
@@ -236,13 +241,17 @@ nil:
 ;
 
 op:
-PLUS   { op EAdd }
-|MINUS { op ESub }
-|TIMES { op EMul }
-|DIV   { op EDiv }
-|AND   { op myand}
-|OR    { op myor }
-|EQ    { op EEq  }
-|NEQ   { op (\x y -> mynot (EEq x y)) }
-|','   { op EPair}
+PLUS   { EAdd }
+|MINUS { ESub }
+|TIMES { EMul }
+|DIV   { EDiv }
+|AND   { myand}
+|OR    { myor }
+|EQ    { EEq  }
+|NEQ   { (\x y -> mynot (EEq x y)) }
+|LT    { ELt }
+|LE    { (\x y -> mynot (ELt y x)) }
+|GT    { (\x y -> ELt y x)}
+|GE    { (\x y -> mynot (ELt x y)) }
+|','   { EPair}
 ;
