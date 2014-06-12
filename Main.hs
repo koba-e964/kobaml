@@ -10,12 +10,12 @@ import ExprParser
 import qualified Data.Map.Strict as Map
 import TypeInf
 
-processExpr :: String -> TypeEnv -> Env -> Expr -> St IO (TypeScheme, Value)
-processExpr !name !tenv !venv !expr = do
+processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> St IO (TypeScheme, Value)
+processExpr !name !tenv !venv !expr !showing = do
   ty <- typeInfer tenv expr
   lift $ putStrLn $ name ++ " : " ++ show ty
   let result = eval venv expr
-  lift $ putStrLn $ " = " ++ show result
+  when showing $ lift $ putStrLn $ " = " ++ show result
   ty `seq` result `seq` return (ty, result)
 
 readCmd :: IO (Either ParseError Command)
@@ -32,7 +32,7 @@ repl !tenv !venv = do
         Right cmd -> 
             case cmd of
                  CLet (Name name) expr -> do
-                     (!ty, !result) <- processExpr name tenv venv expr
+                     (!ty, !result) <- processExpr name tenv venv expr True
                      let newtenv = Map.insert name ty     tenv
                      let newvenv = Map.insert name result venv
                      repl newtenv newvenv
@@ -43,14 +43,14 @@ repl !tenv !venv = do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
                      repl newtenv newvenv
-                 CExp expr -> processExpr "-" tenv venv expr >> repl tenv venv
+                 CExp expr -> processExpr "-" tenv venv expr True >> repl tenv venv
                  CQuit     -> return ()
 
 nextEnv :: Command -> (TypeEnv, Env) -> St IO (TypeEnv, Env)
 nextEnv !cmd (!tenv, !venv) =
 	case cmd of
             CLet (Name name) expr -> do
-                     (!ty, !result) <- processExpr name tenv venv expr
+                     (!ty, !result) <- processExpr name tenv venv expr False
                      let newtenv = Map.insert name ty     tenv
                      let newvenv = Map.insert name result venv
                      return (newtenv, newvenv)
@@ -67,7 +67,6 @@ nextEnv !cmd (!tenv, !venv) =
 loadFile :: FilePath -> (TypeEnv, Env) -> IO (TypeEnv, Env)
 loadFile path (tenv, env) = do
     cont <- readFile path
-    putStrLn cont
     case commandsOfString cont of
       Left x -> error $ "Error in loading \"" ++ path ++ "\":\n" ++ show x
       Right cmds -> fmap fst $ runStateT (sub cmds (tenv, env)) 0
