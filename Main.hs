@@ -14,7 +14,7 @@ import TypeInf
 processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> St IO (TypeScheme, Value)
 processExpr !name !tenv !venv !expr !showing = do
   ty <- typeInfer tenv expr
-  lift $ lift $ putStrLn $ name ++ " : " ++ show ty
+  liftIOToStIO $ putStrLn $ name ++ " : " ++ show ty
   let result = eval venv expr
   when showing $ lift $ lift $ putStrLn $ " = " ++ show result
   ty `seq` result `seq` return (ty, result)
@@ -86,4 +86,4 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   (tenv, venv) <- loadFile "stdlib.txt" (teEmpty, Map.empty)
-  runStateT (runErrorT (repl tenv venv)) 0 >> return ()
+  runStateT (runErrorT $ catchError (repl tenv venv) (\(TypeError s) -> liftIOToStIO $ putStrLn s)) 0 >> return ()

@@ -1,7 +1,6 @@
 {-# LANGUAGE BangPatterns, TupleSections #-}
 module TypeInf where
 
-import Control.Exception
 import Control.Monad.State
 import Control.Monad.ST
 import Control.Monad.Error
@@ -23,37 +22,39 @@ addCons var ty (tmap, cons) =
       newcons = List.map (\(TypeEqual ty1 ty2) -> inc ty1 `typeEqual` inc ty2) cons in
     (conv, newcons)
 
-unifyAll :: [TypeCons] -> TypeSubst
+unifyAll :: Monad m => [TypeCons] -> ErrorT TypeError m TypeSubst
 unifyAll cons = sub tmEmpty cons where
-         sub m [] = m
-         sub m ((TypeEqual ty1 ty2):rest) = let (newm, newrest) = unify ty1 ty2 (m, rest) in sub newm newrest
+         sub m [] = return m
+         sub m ((TypeEqual ty1 ty2):rest) = do
+             (newm, newrest) <- unify ty1 ty2 (m, rest)
+             sub newm newrest
 
 
-unify :: Type -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
+unify :: Monad m => Type -> Type -> (TypeSubst, [TypeCons]) -> ErrorT TypeError m (TypeSubst, [TypeCons])
 
 unify x y map
-  | x == y = map
+  | x == y = return map
 unify (TVar x) y map
   | Set.member x (freeVars y) = errorRecursive x y map
-  | otherwise                 = addCons x y map
+  | otherwise                 = return $ addCons x y map
 
 unify y (TVar x) map
   | Set.member x (freeVars y) = errorRecursive x y map
-  | otherwise                 = addCons x y map
+  | otherwise                 = return $ addCons x y map
 
 unify (TFun a1 b1) (TFun a2 b2) (map, cons) =
-  (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
+  return (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
 unify (TList a) (TList b) (map, cons) =
-  (map, (a `typeEqual` b) : cons)
+  return (map, (a `typeEqual` b) : cons)
 unify (TPair a1 b1) (TPair a2 b2) (map, cons) =
-  (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
+  return (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
 unify x y _ = unifyError x y
 
-unifyError :: Type -> Type -> a
-unifyError x y = throw $ TypeError $ "Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)"
+unifyError :: Monad m => Type -> Type -> ErrorT TypeError m a
+unifyError x y = throwError $ TypeError $ "Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)"
 
-errorRecursive :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> a
-errorRecursive tvar ty mapc = throw $ TypeError $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
+errorRecursive :: Monad m => TypeVar -> Type -> (TypeSubst, [TypeCons]) -> ErrorT TypeError m a
+errorRecursive tvar ty mapc = throwError $ TypeError $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
 
 
 subst :: TypeSubst -> Type -> Type
@@ -92,7 +93,7 @@ gatherConstraints !env !expr =
       _       -> undefined
     EVar (Name name) -> case Map.lookup name env of
       Just ty -> fmap (, []) $ instantiate ty
-      Nothing -> throw $ TypeError $ "unbound variable: " ++ name
+      Nothing -> throwError $ TypeError $ "unbound variable: " ++ name
     EAdd e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     ESub e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
     EMul e1 e2 -> fmap (intType,) $ gatherConsHelper env [(e1,intType), (e2, intType)]
@@ -105,7 +106,7 @@ gatherConstraints !env !expr =
       return (newTy, cons)
     ELet (Name name) e1 e2 -> do
       (t1, c1) <- gatherConstraints env e1
-      let substs = unifyAll c1:: TypeSubst
+      substs <- unifyAll c1
       let etysch = generalize env $ subst substs t1
       let newtenv = fmap (generalizeTypeScheme env . substTypeScheme substs) env :: TypeEnv
       (t2, c2) <- gatherConstraints (Map.insert name etysch newtenv) e2
@@ -113,7 +114,7 @@ gatherConstraints !env !expr =
     EFun (Name name) fexpr -> do
       a <- newType
       (t, c) <- gatherConstraints (Map.insert name (fromType a) env) fexpr
-      let substs = unifyAll c
+      substs <- unifyAll c
       let ty = subst substs $ TFun a t
       return (ty, c)
     ECons car cdr -> do
@@ -188,13 +189,13 @@ tyRLetBindings tenv bindings = do
 typeInfer :: (Monad m, Functor m) => TypeEnv -> Expr -> St m TypeScheme
 typeInfer !tenv !expr = do
   (!ty, !cons) <- gatherConstraints tenv expr
-  let !substs = unifyAll cons
+  !substs <- unifyAll cons
   return $ generalize tenv $ subst substs ty
 
 tyRLetBindingsInfer :: (Monad m, Functor m) => TypeEnv -> [(Name, Expr)] -> St m TypeEnv
 tyRLetBindingsInfer tenv bindings = do
   (newtenv, cons) <- tyRLetBindings tenv bindings
-  let tySubst = unifyAll cons
+  tySubst <- unifyAll cons
   return $ fmap (generalizeTypeScheme tenv . substTypeScheme tySubst) newtenv
 
 generalize :: TypeEnv -> Type -> TypeScheme
