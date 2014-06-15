@@ -2,7 +2,7 @@
 module Main where
 
 import Control.Monad.State
-import Control.Monad.Error
+import Control.Monad.Except
 import System.IO
 
 import CDef
@@ -78,7 +78,7 @@ loadFile path (tenv, env) = do
         where
 	  sub [] (te, ve) = return (te, ve) :: IO (TypeEnv, Env)
 	  sub (y : ys) (te, ve) = do
-              (Right newtve,_)   <- runStateT (runErrorT $ catchError (nextEnv y (te, ve)) (\_ -> return (te, ve))) 0
+              (Right newtve,_)   <- runStateT (runExceptT $ catchError (nextEnv y (te, ve)) (\_ -> return (te, ve))) 0
               sub ys newtve
 
 
@@ -86,4 +86,4 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   (tenv, venv) <- loadFile "stdlib.txt" (teEmpty, Map.empty)
-  runStateT (runErrorT $ catchError (repl tenv venv) (\(TypeError s) -> liftIOToStIO $ putStrLn s)) 0 >> return ()
+  runStateT (runExceptT $ catchError (repl tenv venv) (\(TypeError s) -> liftIOToStIO $ putStrLn s)) 0 >> return ()

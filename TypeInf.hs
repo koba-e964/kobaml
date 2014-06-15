@@ -3,7 +3,7 @@ module TypeInf where
 
 import Control.Monad.State
 import Control.Monad.ST
-import Control.Monad.Error
+import Control.Monad.Except
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -13,7 +13,7 @@ import Prelude hiding (map)
 import CDef
 
 
-type St m = ErrorT TypeError (StateT Int m) -- the state of the type inferrer
+type St m = ExceptT TypeError (StateT Int m) -- the state of the type inferrer
 
 addCons :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 addCons var ty (tmap, cons) =
@@ -22,7 +22,7 @@ addCons var ty (tmap, cons) =
       newcons = List.map (\(TypeEqual ty1 ty2) -> inc ty1 `typeEqual` inc ty2) cons in
     (conv, newcons)
 
-unifyAll :: Monad m => [TypeCons] -> ErrorT TypeError m TypeSubst
+unifyAll :: Monad m => [TypeCons] -> ExceptT TypeError m TypeSubst
 unifyAll cons = sub tmEmpty cons where
          sub m [] = return m
          sub m ((TypeEqual ty1 ty2):rest) = do
@@ -30,7 +30,7 @@ unifyAll cons = sub tmEmpty cons where
              sub newm newrest
 
 
-unify :: Monad m => Type -> Type -> (TypeSubst, [TypeCons]) -> ErrorT TypeError m (TypeSubst, [TypeCons])
+unify :: Monad m => Type -> Type -> (TypeSubst, [TypeCons]) -> ExceptT TypeError m (TypeSubst, [TypeCons])
 
 unify x y map
   | x == y = return map
@@ -50,10 +50,10 @@ unify (TPair a1 b1) (TPair a2 b2) (map, cons) =
   return (map, (a1 `typeEqual` a2) : (b1 `typeEqual` b2) : cons)
 unify x y _ = unifyError x y
 
-unifyError :: Monad m => Type -> Type -> ErrorT TypeError m a
+unifyError :: Monad m => Type -> Type -> ExceptT TypeError m a
 unifyError x y = throwError $ TypeError $ "Cannot unify " ++ show x ++" with " ++ show y ++ " (T_T)"
 
-errorRecursive :: Monad m => TypeVar -> Type -> (TypeSubst, [TypeCons]) -> ErrorT TypeError m a
+errorRecursive :: Monad m => TypeVar -> Type -> (TypeSubst, [TypeCons]) -> ExceptT TypeError m a
 errorRecursive tvar ty mapc = throwError $ TypeError $ "Cannot construct recursive type(>_<) :" ++ show tvar ++ " = " ++ show ty ++ " in " ++ show mapc
 
 
