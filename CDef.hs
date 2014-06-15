@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns, DeriveDataTypeable #-}
 module CDef where
 
+import Control.Monad.Error
 import qualified Data.List as List 
 import Data.Typeable
 import Control.Exception
@@ -144,6 +145,9 @@ instance Exception ParseError
 
 data TypeError = TypeError String deriving (Typeable, Show)
 instance Exception TypeError
+instance Error TypeError where
+  noMsg = TypeError "type error"
+  strMsg = TypeError
 
 data EvalError = EvalError String deriving (Typeable, Show)
 instance Exception EvalError

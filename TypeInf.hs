@@ -4,6 +4,7 @@ module TypeInf where
 import Control.Exception
 import Control.Monad.State
 import Control.Monad.ST
+import Control.Monad.Error
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -13,7 +14,7 @@ import Prelude hiding (map)
 import CDef
 
 
-type St m = StateT Int m -- the state of the type inferrer
+type St m = ErrorT TypeError (StateT Int m) -- the state of the type inferrer
 
 addCons :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 addCons var ty (tmap, cons) =
