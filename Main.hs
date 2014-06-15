@@ -28,28 +28,39 @@ liftIOToStIO :: IO a -> St IO a
 liftIOToStIO x = lift $ lift x
 
 
-repl :: TypeEnv -> Env -> St IO ()
+repl :: TypeEnv -> Env -> IO ()
 repl !tenv !venv = do
-    liftIOToStIO $ putStr "> "
-    cmdOrErr <- liftIOToStIO $ readCmd
+    putStr "> "
+    cmdOrErr <- readCmd
     case cmdOrErr of
-        Left (ParseError ex) -> liftIOToStIO (putStrLn ex) >> repl tenv venv
-        Right cmd -> 
+        Left (ParseError ex) -> putStrLn ex >> repl tenv venv
+        Right cmd -> case cmd of
+	    CQuit -> return ()
+	    _	  -> do
+	      (tmp, _) <- runStateT (runExceptT $ processCmd cmd tenv venv) 0
+	      case tmp of
+	          Left (TypeError te)      -> do
+		      putStrLn $ "error: " ++ te
+		      repl tenv venv
+	          Right (newtenv, newvenv) -> repl newtenv newvenv
+
+processCmd :: Command -> TypeEnv -> Env -> St IO (TypeEnv, Env)
+processCmd !cmd !tenv !venv =
             case cmd of
                  CLet (Name name) expr -> do
                      (!ty, !result) <- processExpr name tenv venv expr True
                      let newtenv = Map.insert name ty     tenv
                      let newvenv = Map.insert name result venv
-                     repl newtenv newvenv
+                     return (newtenv, newvenv)
                  CRLets bindings       -> do
                      newtenv <- tyRLetBindingsInfer tenv bindings
                      let newvenv = getNewEnvInRLets bindings venv
                      liftIOToStIO $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
-                     repl newtenv newvenv
-                 CExp expr -> processExpr "-" tenv venv expr True >> repl tenv venv
-                 CQuit     -> return ()
+                     return (newtenv, newvenv)
+                 CExp expr -> processExpr "-" tenv venv expr True >> return (tenv, venv)
+                 CQuit     -> error "(>_<)(>_<)"
 
 nextEnv :: Command -> (TypeEnv, Env) -> St IO (TypeEnv, Env)
 nextEnv !cmd (!tenv, !venv) =
@@ -86,4 +97,5 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   (tenv, venv) <- loadFile "stdlib.txt" (teEmpty, Map.empty)
-  runStateT (runExceptT $ catchError (repl tenv venv) (\(TypeError s) -> liftIOToStIO $ putStrLn s)) 0 >> return ()
+  repl tenv venv
+  return ()
