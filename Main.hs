@@ -69,10 +69,12 @@ loadFile path (tenv, env) = do
     cont <- readFile path
     case commandsOfString cont of
       Left x -> error $ "Error in loading \"" ++ path ++ "\":\n" ++ show x
-      Right cmds -> fmap fst $ runStateT (sub cmds (tenv, env)) 0
+      Right cmds -> sub cmds (tenv, env)
         where
-	  sub [] (te, ve) = return (te, ve) :: St IO (TypeEnv, Env)
-	  sub (y : ys) (te, ve) = join $ fmap (sub ys) (nextEnv y (te, ve))
+	  sub [] (te, ve) = return (te, ve) :: IO (TypeEnv, Env)
+	  sub (y : ys) (te, ve) = do
+              (newtve, _) <- runStateT (nextEnv y (te, ve)) 0
+              sub ys newtve
 
 
 main :: IO ()
