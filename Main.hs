@@ -11,14 +11,23 @@ import ExprParser
 import qualified Data.Map.Strict as Map
 import TypeInf
 
-processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> St IO (TypeScheme, Value)
+convertTypeError :: (Functor m, Monad m) => ExceptT TypeError m a -> ExceptT SomeError m a
+convertTypeError = mapExceptT $ fmap $ either (Left . SEType) Right
+
+convertEvalError :: (Functor m, Monad m) => ExceptT EvalError m a -> ExceptT SomeError m a
+convertEvalError = mapExceptT $ fmap $ either (Left . SEEval) Right
+
+runSt :: (Functor m, Monad m) => St m a -> ExceptT SomeError m a
+runSt action = convertTypeError $ (mapExceptT $ \x -> fmap fst (runStateT x 0)) $ action
+
+
+processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> ExceptT SomeError IO (TypeScheme, Value)
 processExpr !name !tenv !venv !expr !showing = do
-  ty <- typeInfer tenv expr
-  liftIOToStIO $ putStrLn $ name ++ " : " ++ show ty
-  re <- runExceptT $ eval venv expr
-  case re of
-      Left (EvalError err) -> throwError (TypeError err) -- CONVERTS EvalError to TypeError
-      Right result           -> (when showing $ liftIOToStIO $ putStrLn $ " = " ++ show result) >> (ty `seq` result `seq` return (ty, result))
+  ty <- runSt $ typeInfer tenv expr
+  lift $ putStrLn $ name ++ " : " ++ show ty
+  result <- convertEvalError $  eval venv expr
+  when showing $ lift $ putStrLn $ " = " ++ show result
+  ty `seq` result `seq` return (ty, result)
 
 readCmd :: IO (Either ParseError Command)
 readCmd = do
@@ -38,14 +47,14 @@ repl !tenv !venv = do
         Right cmd -> case cmd of
 	    CQuit -> return ()
 	    _	  -> do
-	      (tmp, _) <- runStateT (runExceptT $ processCmd cmd tenv venv) 0
+	      tmp <- runExceptT $ processCmd cmd tenv venv
 	      case tmp of
-	          Left (TypeError te)      -> do
-		      putStrLn $ "error: " ++ te
+	          Left someError      -> do
+		      putStrLn $ "error: " ++ show someError
 		      repl tenv venv
 	          Right (newtenv, newvenv) -> repl newtenv newvenv
 
-processCmd :: Command -> TypeEnv -> Env -> St IO (TypeEnv, Env)
+processCmd :: Command -> TypeEnv -> Env -> ExceptT SomeError IO (TypeEnv, Env)
 processCmd !cmd !tenv !venv =
             case cmd of
                  CLet (Name name) expr -> do
@@ -54,16 +63,16 @@ processCmd !cmd !tenv !venv =
                      let newvenv = Map.insert name result venv
                      return (newtenv, newvenv)
                  CRLets bindings       -> do
-                     newtenv <- tyRLetBindingsInfer tenv bindings
+                     newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
                      let newvenv = getNewEnvInRLets bindings venv
-                     liftIOToStIO $ forM_ bindings $ \(Name fname,  _) -> do
+                     lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
                      return (newtenv, newvenv)
                  CExp expr -> processExpr "-" tenv venv expr True >> return (tenv, venv)
                  CQuit     -> error "(>_<)(>_<)"
 
-nextEnv :: Command -> (TypeEnv, Env) -> St IO (TypeEnv, Env)
+nextEnv :: Command -> (TypeEnv, Env) -> ExceptT SomeError IO (TypeEnv, Env)
 nextEnv !cmd (!tenv, !venv) =
 	case cmd of
             CLet (Name name) expr -> do
@@ -72,9 +81,9 @@ nextEnv !cmd (!tenv, !venv) =
                      let newvenv = Map.insert name result venv
                      return (newtenv, newvenv)
             CRLets bindings       -> do
-                     newtenv <- tyRLetBindingsInfer tenv bindings
+                     newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
                      let newvenv = getNewEnvInRLets bindings venv
-                     liftIOToStIO $ forM_ bindings $ \(Name fname,  _) -> do
+                     lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
                      return (newtenv, newvenv)
@@ -90,7 +99,7 @@ loadFile path (tenv, env) = do
         where
 	  sub [] (te, ve) = return (te, ve) :: IO (TypeEnv, Env)
 	  sub (y : ys) (te, ve) = do
-              (Right newtve,_)   <- runStateT (runExceptT $ catchError (nextEnv y (te, ve)) (\_ -> return (te, ve))) 0
+              Right newtve   <- runExceptT $ catchError (nextEnv y (te, ve)) (\_ -> return (te, ve))
               sub ys newtve
 
 

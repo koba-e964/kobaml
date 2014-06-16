@@ -147,3 +147,13 @@ instance Exception TypeError
 
 data EvalError = EvalError String deriving (Typeable, Show)
 instance Exception EvalError
+
+data SomeError = 
+     SEParse ParseError
+     | SEType TypeError
+     | SEEval EvalError
+
+instance Show SomeError where
+     show (SEParse se) = show se
+     show (SEType se)  = show se
+     show (SEEval se)  = show se
