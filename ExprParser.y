@@ -220,12 +220,25 @@ simple_expr:
 | ID                { EVar   (Name $1) }
 | TRUE              { mytrue }
 | FALSE             { myfalse } 
-| LPAR op RPAR      { op $2 }
+| section           { $1 }
 | LPAR expr RPAR    { $2 }
 | LPAR expr ',' expr RPAR { EPair $2 $4 }
 | list              { $1 }
 | nil               { ENil }
 ;
+
+simple_expr2:
+  INT               { EConst (VInt $1) }
+| ID                { EVar   (Name $1) }
+| TRUE              { mytrue }
+| FALSE             { myfalse } 
+;
+
+section:
+  LPAR op RPAR      { op $2 }
+-- | LPAR simple_expr2 op RPAR { EFun (Name "t") ($3 $2 (EVar (Name "t"))) } 
+| LPAR op_m simple_expr RPAR { EFun (Name "t") ($2 (EVar (Name "t")) $3) } 
+
 
 list:
   LBRACKET list_cont RBRACKET { $2 }
@@ -255,3 +268,21 @@ PLUS   { EAdd }
 |GE    { (\x y -> mynot (ELt x y)) }
 |','   { EPair}
 ;
+
+
+op_m: -- operators other than minus
+PLUS   { EAdd }
+|TIMES { EMul }
+|DIV   { EDiv }
+|AND   { myand}
+|OR    { myor }
+|EQ    { EEq  }
+|NEQ   { (\x y -> mynot (EEq x y)) }
+|LT    { ELt }
+|LE    { (\x y -> mynot (ELt y x)) }
+|GT    { (\x y -> ELt y x)}
+|GE    { (\x y -> mynot (ELt x y)) }
+|','   { EPair}
+;
+
+
