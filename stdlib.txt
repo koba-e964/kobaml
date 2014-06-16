@@ -69,6 +69,7 @@ let rec drop n ls = match ls with
     | [] -> []
     | x :: xs -> if n <= 0 then x :: xs else drop (n-1) xs;;
 let split_at n ls = (take n ls, drop n ls);;
+let nth ind ls = head (drop ind ls);;
 let rec take_while p ls = match ls with
     | [] -> []
     | x :: xs -> if p x then x :: take_while p xs else [];;
