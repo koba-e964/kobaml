@@ -15,9 +15,10 @@ processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> St IO (TypeScheme, Va
 processExpr !name !tenv !venv !expr !showing = do
   ty <- typeInfer tenv expr
   liftIOToStIO $ putStrLn $ name ++ " : " ++ show ty
-  let result = eval venv expr
-  when showing $ lift $ lift $ putStrLn $ " = " ++ show result
-  ty `seq` result `seq` return (ty, result)
+  re <- runExceptT $ eval venv expr
+  case re of
+      Left (EvalError err) -> throwError (TypeError err) -- CONVERTS EvalError to TypeError
+      Right result           -> (when showing $ liftIOToStIO $ putStrLn $ " = " ++ show result) >> (ty `seq` result `seq` return (ty, result))
 
 readCmd :: IO (Either ParseError Command)
 readCmd = do
