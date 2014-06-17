@@ -101,6 +101,29 @@ instance (Show Value) where
     sub _  _ = error "(>_<) < weird... the last cell of the list is not nil..."
   show (VPair a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
   show VNil = "[]"
+
+data ValueLazy = 
+     VLInt Int
+     | VLBool Bool
+     | VLFun Name EnvLazy Expr
+     | VLCons ValueLazy ValueLazy
+     | VLPair ValueLazy ValueLazy
+     | VLNil
+     deriving (Eq)
+
+instance (Show ValueLazy) where
+  show (VLInt  v) = show v
+  show (VLBool v) = show v
+  show (VLFun (Name name) _ _) = "fun " ++ name ++ " -> (expr)" 
+  show (VLCons vcar vcdr) = "[" ++ sub vcar vcdr (10 :: Int) ++ "]" where
+    sub _ _    0 = "..."
+    sub v VLNil _ = show v
+    sub v1 (VLCons v2 v3) n = show v1 ++ ", " ++ sub v2 v3 (n-1)
+    sub _  _ _ = error "(>_<) < weird... the last cell of the list is not nil..."
+  show (VLPair a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
+  show VLNil = "[]"
+
+
 data Expr  = EConst Value
            | EVar Name
      	   | EAdd Expr Expr
@@ -134,6 +157,8 @@ data Command
   deriving (Eq, Show)
 
 type Env = Map String Value
+type EnvLazy = Map String ValueLazy
+
 
 {-------------------
     Exceptions
