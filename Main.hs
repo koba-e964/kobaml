@@ -5,9 +5,10 @@ import Control.Monad.State
 import Control.Monad.Except
 import System.IO
 
-import CDef
-import Eval
+import CDef hiding (Value, Env)
+import EvalLazy
 import ExprParser
+import qualified Data.Map as LMap
 import qualified Data.Map.Strict as Map
 import TypeInf
 
@@ -60,11 +61,11 @@ processCmd !cmd !tenv !venv =
                  CLet (Name name) expr -> do
                      (!ty, !result) <- processExpr name tenv venv expr True
                      let newtenv = Map.insert name ty     tenv
-                     let newvenv = Map.insert name result venv
+                     let newvenv = LMap.insert name result venv
                      return (newtenv, newvenv)
                  CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
-                     let newvenv = getNewEnvInRLets bindings venv
+                     newvenv <- convertEvalError $  getNewEnvInRLets bindings venv
                      lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
@@ -82,7 +83,7 @@ nextEnv !cmd (!tenv, !venv) =
                      return (newtenv, newvenv)
             CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
-                     let newvenv = getNewEnvInRLets bindings venv
+                     newvenv <- convertEvalError $ getNewEnvInRLets bindings venv
                      lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
@@ -106,6 +107,6 @@ loadFile path (tenv, env) = do
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  (tenv, venv) <- loadFile "stdlib.txt" (teEmpty, Map.empty)
+  (tenv, venv) <- loadFile "stdlib.txt" (teEmpty, LMap.empty)
   repl tenv venv
   return ()
