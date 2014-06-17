@@ -27,7 +27,8 @@ processExpr !name !tenv !venv !expr !showing = do
   ty <- runSt $ typeInfer tenv expr
   lift $ putStrLn $ name ++ " : " ++ show ty
   result <- convertEvalError $  eval venv expr
-  when showing $ lift $ putStrLn $ " = " ++ show result
+  rs     <- convertEvalError $ showValueLazy result
+  when showing $ lift $ putStrLn $ " = " ++ rs
   ty `seq` result `seq` return (ty, result)
 
 readCmd :: IO (Either ParseError Command)
@@ -59,9 +60,9 @@ processCmd :: Command -> TypeEnv -> Env -> ExceptT SomeError IO (TypeEnv, Env)
 processCmd !cmd !tenv !venv =
             case cmd of
                  CLet (Name name) expr -> do
-                     (!ty, !result) <- processExpr name tenv venv expr True
+                     (!ty, _) <- processExpr name tenv venv expr True
                      let newtenv = Map.insert name ty     tenv
-                     let newvenv = LMap.insert name result venv
+                     let newvenv = LMap.insert name (Thunk venv expr) venv
                      return (newtenv, newvenv)
                  CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
@@ -77,9 +78,9 @@ nextEnv :: Command -> (TypeEnv, Env) -> ExceptT SomeError IO (TypeEnv, Env)
 nextEnv !cmd (!tenv, !venv) =
 	case cmd of
             CLet (Name name) expr -> do
-                     (!ty, !result) <- processExpr name tenv venv expr False
+                     (!ty, _) <- processExpr name tenv venv expr False
                      let newtenv = Map.insert name ty     tenv
-                     let newvenv = Map.insert name result venv
+                     let newvenv = LMap.insert name (Thunk venv expr) venv
                      return (newtenv, newvenv)
             CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
