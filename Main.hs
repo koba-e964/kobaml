@@ -21,13 +21,21 @@ convertEvalError = mapExceptT $ fmap $ either (Left . SEEval) Right
 runSt :: (Functor m, Monad m) => St m a -> ExceptT SomeError m a
 runSt action = convertTypeError $ (mapExceptT $ \x -> fmap fst (runStateT x 0)) $ action
 
+runEV :: (Functor m, Monad m) => EnvLazy -> EV m a -> ExceptT SomeError m (a, EnvLazy)
+runEV env action = convertEvalError $ (mapExceptT $ k) $ action where
+    k state' = do
+      (res, newenv) <- runStateT state' env
+      case res of
+        Left x -> return $ Left x
+        Right y -> return $ Right (y, newenv)
+
 
 processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> ExceptT SomeError IO (TypeScheme, Value)
 processExpr !name !tenv !venv !expr !showing = do
   ty <- runSt $ typeInfer tenv expr
   lift $ putStrLn $ name ++ " : " ++ show ty
-  result <- convertEvalError $  eval venv expr
-  rs     <- convertEvalError $ showValueLazy result
+  (result, _) <- runEV venv $  eval expr 
+  (rs, _    ) <- runEV venv $ showValueLazy result
   when showing $ lift $ putStrLn $ " = " ++ rs
   ty `seq` result `seq` return (ty, result)
 
@@ -66,7 +74,7 @@ processCmd !cmd !tenv !venv =
                      return (newtenv, newvenv)
                  CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
-                     newvenv <- convertEvalError $  getNewEnvInRLets bindings venv
+                     (newvenv, _) <- runEV venv $  getNewEnvInRLets bindings venv
                      lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
@@ -84,7 +92,7 @@ nextEnv !cmd (!tenv, !venv) =
                      return (newtenv, newvenv)
             CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
-                     newvenv <- convertEvalError $ getNewEnvInRLets bindings venv
+                     (newvenv, _) <- runEV venv $ getNewEnvInRLets bindings venv
                      lift $ forM_ bindings $ \(Name fname,  _) -> do
                        let Just ty = Map.lookup fname newtenv
                        putStrLn $ fname ++ " : " ++ show ty
