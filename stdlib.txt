@@ -89,3 +89,8 @@ let rec zip_with op ls1 ls2 = match ls1 with
     | x :: xs -> match ls2 with
         | y :: ys -> op x y :: zip_with op xs ys
         | [] -> [];;
+
+let enum_from_to x y =
+  let rec sub t = if t > y then [] else t :: sub (t + 1) in
+  sub x;;
+

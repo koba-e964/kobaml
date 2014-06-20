@@ -31,6 +31,7 @@ data Token
     | AND
     | LT | LE | GT | GE
     | LPAR | RPAR | COMMA
+    | DDOT {- .. -}
     | EOC
     | EOF
     deriving (Eq, Show)

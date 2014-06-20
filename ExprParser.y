@@ -72,6 +72,7 @@ RPAR {RPAR}
 EOC {EOC}
 EOF {EOF}
 ',' {COMMA}
+".." {DDOT}
 INT {INT $$}
 ID {ID $$}
 
@@ -242,6 +243,7 @@ section:
 
 list:
   LBRACKET list_cont RBRACKET { $2 }
+| LBRACKET expr ".." expr RBRACKET { EApp (EApp (EVar (Name "enum_from_to")) $2) $4 }
 ;
 
 list_cont:
