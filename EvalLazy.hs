@@ -32,7 +32,10 @@ eval (EConst _) = error "(>_<) weird const expression..."
 eval (EVar (Name name)) = do
     env <- get
     case Map.lookup name env of
-      Just thunk -> evalThunk thunk
+      Just thunk -> do
+        result <- evalThunk thunk
+        put $ Map.insert name (ThVal result) env
+	return result
       Nothing    -> evalError $ "Unbound variable: " ++ name
 eval (EAdd v1 v2) = join $ op2Int (+) <$> (eval v1) <*> (eval v2)
 eval (ESub v1 v2) = join $ op2Int (-) <$> (eval v1) <*> (eval v2)
@@ -158,7 +161,7 @@ evalThunk (Thunk env expr) = do
     ret <- eval expr
     put oldenv
     return ret
-
+evalThunk (ThVal value) = return value
 
 showValueLazy :: (Functor m, Monad m) => Value -> EV m String
 showValueLazy (VLInt  v) = return $ show v

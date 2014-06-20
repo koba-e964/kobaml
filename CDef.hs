@@ -112,6 +112,7 @@ data ValueLazy =
 
 data Thunk =
      Thunk EnvLazy Expr
+     | ThVal ValueLazy {- Memoized -}
 
 
 data Expr  = EConst Value
