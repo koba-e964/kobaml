@@ -132,19 +132,19 @@ showValueLazy (VLInt  v) = return $ show v
 showValueLazy (VLBool v) = return $ show v
 showValueLazy (VLFun (Name name) _ _) = return $ "fun " ++ name ++ " -> (expr)" 
 showValueLazy (VLCons tcar tcdr) = do
-    vcar <- evalThunk tcar
-    vcdr <- evalThunk tcdr
-    inner <- sub vcar vcdr (10 :: Int)
+    inner <- sub tcar tcdr (10 :: Int)
     return $ "[" ++ inner ++ "]" where
     sub _ _    0 = return "..."
-    sub v VLNil _ = showValueLazy v
-    sub v1 (VLCons t2 t3) n = do
-      v2 <- evalThunk t2
-      v3 <- evalThunk t3
-      sv <- showValueLazy v1
-      sr <- sub v2 v3 (n-1)
-      return $ sv ++ ", " ++ sr
-    sub _  _ _ = error "(>_<) < weird... the last cell of the list is not nil..."
+    sub t1 tcdr' n = do
+      v1 <- evalThunk t1
+      vcdr <- evalThunk tcdr'
+      case vcdr of
+        VLNil -> showValueLazy v1
+        VLCons t2 t3 -> do
+          sv <- showValueLazy v1
+          sr <- sub t2 t3 (n-1)
+          return $ sv ++ ", " ++ sr
+        _     -> error "(>_<) < weird... the last cell of the list is not nil..."
 showValueLazy (VLPair a b) = do
     va <- evalThunk a
     sa <- showValueLazy va
