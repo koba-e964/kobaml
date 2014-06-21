@@ -1,7 +1,8 @@
 {-# LANGUAGE BangPatterns, DeriveDataTypeable #-}
 module CDef where
 
-import qualified Data.List as List 
+import Data.IORef
+import qualified Data.List as List
 import Data.Typeable
 import Control.Exception
 import Data.Map.Strict (Map)
@@ -110,7 +111,9 @@ data ValueLazy =
      | VLPair Thunk Thunk
      | VLNil
 
-data Thunk =
+type Thunk =
+     IORef ThunkData
+data ThunkData =
      Thunk EnvLazy Expr
      | ThVal ValueLazy {- Memoized -}
 

@@ -8,6 +8,7 @@ import System.IO
 import CDef hiding (Value, Env)
 import EvalLazy
 import ExprParser
+import Data.IORef
 import qualified Data.Map as LMap
 import qualified Data.Map.Strict as Map
 import TypeInf
@@ -21,7 +22,7 @@ convertEvalError = mapExceptT $ fmap $ either (Left . SEEval) Right
 runSt :: (Functor m, Monad m) => St m a -> ExceptT SomeError m a
 runSt action = convertTypeError $ (mapExceptT $ \x -> fmap fst (runStateT x 0)) $ action
 
-runEV :: (Functor m, Monad m) => EnvLazy -> EV m a -> ExceptT SomeError m (a, EnvLazy)
+runEV :: EnvLazy -> EV a -> ExceptT SomeError IO (a, EnvLazy)
 runEV env action = convertEvalError $ (mapExceptT $ k) $ action where
     k state' = do
       (res, newenv) <- runStateT state' env
@@ -70,7 +71,8 @@ processCmd !cmd !tenv !venv =
                  CLet (Name name) expr -> do
                      (!ty, _) <- processExpr name tenv venv expr True
                      let newtenv = Map.insert name ty     tenv
-                     let newvenv = LMap.insert name (Thunk venv expr) venv
+		     thunk <- lift $ newIORef $ Thunk venv expr
+                     let newvenv = LMap.insert name thunk venv
                      return (newtenv, newvenv)
                  CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
@@ -88,7 +90,8 @@ nextEnv !cmd (!tenv, !venv) =
             CLet (Name name) expr -> do
                      (!ty, _) <- processExpr name tenv venv expr False
                      let newtenv = Map.insert name ty     tenv
-                     let newvenv = LMap.insert name (Thunk venv expr) venv
+		     thunk <- lift $ newIORef $ Thunk venv expr
+                     let newvenv = LMap.insert name thunk venv
                      return (newtenv, newvenv)
             CRLets bindings       -> do
                      newtenv <- runSt $ tyRLetBindingsInfer tenv bindings
