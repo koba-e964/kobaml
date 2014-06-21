@@ -142,6 +142,10 @@ gatherConstraints !env !expr =
     ENil -> do
       a <- newType
       return $ (TList a, [])
+    ESeq ea eb -> do
+      (_ , ca) <- gatherConstraints env ea
+      (tb, cb) <- gatherConstraints env eb
+      return (tb, ca ++ cb)
 
 gatherConsHelper :: (Monad m, Functor m) => TypeEnv -> [(Expr, Type)] -> St m [TypeCons]
 

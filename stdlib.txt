@@ -16,6 +16,9 @@ let rec foldl op e ls = match ls with
 let rec foldr op e ls = match ls with
    | [] -> e
    | x :: xs -> op x (foldr op e xs);;
+let rec foldl_s op e ls = match ls with 
+   | [] -> e
+   | x :: xs -> let z = op e x in z #seq foldl op z xs;;
 
 let head ls = match ls with
    | x :: xs -> x;;
@@ -94,3 +97,13 @@ let enum_from_to x y =
   let rec sub t = if t > y then [] else t :: sub (t + 1) in
   sub x;;
 
+let sum = foldl (+) 0;;
+let sum_s = foldl_s (+) 0;;
+
+let times n f =
+  let rec sub n = if n <= 0 then id else compose (sub (n-1)) f in
+  sub n;;
+
+let times_s n f =
+  let rec sub n x = if n <= 0 then x else let z = f x in z #seq sub (n-1) z in
+  sub n;;

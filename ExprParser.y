@@ -73,6 +73,7 @@ EOC {EOC}
 EOF {EOF}
 ',' {COMMA}
 ".." {DDOT}
+"#seq" {SSEQ}
 INT {INT $$}
 ID {ID $$}
 
@@ -168,7 +169,12 @@ var:
   ID { Name $1 }
 ;
 
-expr1: 
+expr1:
+  expr1_5 "#seq" expr1 { ESeq $1 $3 } {- The least priority, right associativity, a #seq b evaluates a, and then evaluates b -}
+| expr1_5  { $1 }
+;
+
+expr1_5: 
   expr2 OR expr2 { myor $1 $3 }
 | expr2          { $1 }
 ;

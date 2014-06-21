@@ -4,6 +4,7 @@ module EvalLazy where
 import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
+import Debug.Trace
 import Data.IORef
 import qualified Data.Map as Map
 
@@ -86,6 +87,9 @@ eval (EPair e1 e2) = do
      t2 <- liftToEV $ newIORef $ Thunk env e2
      return $ VLPair t1 t2
 eval ENil          = return VLNil
+eval (ESeq ea eb)  = do
+     _ <- eval ea
+     eval eb
 
 evalApp :: Value -> Thunk -> EV Value
 evalApp fval ath =
@@ -164,7 +168,7 @@ evalThunk :: Thunk -> EV Value
 evalThunk thunk = do
   dat <- liftToEV $ readIORef thunk
   case dat of
-    Thunk env expr -> do
+    Thunk env expr -> traceShow expr $ do
       oldenv <- get
       put env
       ret <- eval expr

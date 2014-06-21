@@ -134,6 +134,7 @@ data Expr  = EConst Value
            | EApp Expr Expr
            | ECons Expr Expr
            | EPair Expr Expr
+	   | ESeq Expr Expr {- Force evaluation of expr1 before evaluation of expr2 -}
            | ENil
            deriving (Eq, Show)
 data Pat   = PConst Value
