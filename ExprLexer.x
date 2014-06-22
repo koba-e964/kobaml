@@ -12,6 +12,8 @@ import Prelude hiding (EQ, LT, GT)
 
 $digit = 0-9			-- digits
 $alpha = [a-zA-Z]		-- alphabetic characters
+$ascii_x_esc = [\! \# \$ \% & \' \( \) \;:\<\=\>\?0-9 \+ \, \- \* \. \/ \@ A-Z\[\]\^ a-z \{ \_ \} ]
+$esc = [ \\ \" trn0]
 
 tokens :-
 
@@ -63,4 +65,5 @@ tokens :-
 
   $digit+ { \n ->INT (read n) }
   $alpha [$alpha $digit \_ \']* { ID }
+  \"((\\$esc) | $ascii_x_esc)*\" { STR }
   eof     { \_->EOF }

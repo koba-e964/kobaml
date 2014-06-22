@@ -33,6 +33,7 @@ data Token
     | LPAR | RPAR | COMMA
     | DDOT {- .. -}
     | SSEQ {- #seq for forcing to evaluate, infix -}
+    | STR String
     | EOC
     | EOF
     deriving (Eq, Show)

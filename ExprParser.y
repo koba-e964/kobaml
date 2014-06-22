@@ -28,6 +28,15 @@ commandOfString = exparse . alexScanTokens
 
 commandsOfString :: String -> Either ParseError [Command]
 commandsOfString = exParseCmds . alexScanTokens
+
+fromEscaped :: String -> String
+fromEscaped "\"" = ""
+fromEscaped ('"' : s) = fromEscaped s
+fromEscaped ('\\' : x : s) = y : fromEscaped s where
+     mp = [('\"','\"'), ('\\','\\'), ('r', '\r'), ('n','\n'), ('t','\t'),('0','\0')]
+     Just y = lookup x mp
+fromEscaped (x : s) = x : fromEscaped s
+
 }
 
 
