@@ -28,7 +28,7 @@ boolType = TConc "bool"
 data TypeVar = TypeVar !String deriving (Eq, Ord)
 data TypeCons = TypeEqual !Type !Type deriving (Eq)
 
-data TypeScheme = Forall !(Set TypeVar) !Type
+data TypeScheme = Forall !(Set TypeVar) !Type deriving (Eq)
 
 type TypeSubst = Map TypeVar Type
 type TypeEnv = Map String  TypeScheme
