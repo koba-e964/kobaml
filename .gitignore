@@ -8,3 +8,5 @@ ExprParser.hs
 mcalc
 *.hsx
 *.hsy
+dist/
+

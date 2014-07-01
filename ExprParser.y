@@ -9,36 +9,7 @@ import ExprLexer
 import Prelude hiding (EQ, LT, GT)
 import qualified Data.List as List
 import Control.Exception (throw)
-
-mytrue  = EConst (VBool True)
-myfalse = EConst (VBool False)
-
-mynot e = EIf e myfalse mytrue
-myand e1 e2 = EIf e1 e2 myfalse 
-myor e1 e2  = EIf e1 mytrue e2
-
-op :: (Expr -> Expr -> Expr) -> Expr
-op f = EFun (Name "x") (EFun (Name "y") (f (EVar (Name "x")) (EVar (Name "y"))))
-
-parseError :: [Token] -> Either ParseError a
-parseError toks = Left $ ParseError $ "parseError: " ++ show toks
-
-commandOfString :: String -> Either ParseError Command
-commandOfString = exparse . alexScanTokens
-
-commandsOfString :: String -> Either ParseError [Command]
-commandsOfString = exParseCmds . alexScanTokens
-
-fromEscaped :: String -> String
-fromEscaped "\"" = ""
-fromEscaped ('"' : s) = fromEscaped s
-fromEscaped ('\\' : x : s) = y : fromEscaped s where
-     mp = [('\"','\"'), ('\\','\\'), ('r', '\r'), ('n','\n'), ('t','\t'),('0','\0')]
-     Just y = lookup x mp
-fromEscaped (x : s) = x : fromEscaped s
-
 }
-
 
 %name      exparse     command
 %name      exParseCmds commands
@@ -302,4 +273,34 @@ PLUS   { EAdd }
 |','   { EPair}
 ;
 
+{
+
+mytrue  = EConst (VBool True)
+myfalse = EConst (VBool False)
+
+mynot e = EIf e myfalse mytrue
+myand e1 e2 = EIf e1 e2 myfalse 
+myor e1 e2  = EIf e1 mytrue e2
+
+op :: (Expr -> Expr -> Expr) -> Expr
+op f = EFun (Name "x") (EFun (Name "y") (f (EVar (Name "x")) (EVar (Name "y"))))
+
+parseError :: [Token] -> Either ParseError a
+parseError toks = Left $ ParseError $ "parseError: " ++ show toks
+
+commandOfString :: String -> Either ParseError Command
+commandOfString = exparse . alexScanTokens
+
+commandsOfString :: String -> Either ParseError [Command]
+commandsOfString = exParseCmds . alexScanTokens
+
+fromEscaped :: String -> String
+fromEscaped "\"" = ""
+fromEscaped ('"' : s) = fromEscaped s
+fromEscaped ('\\' : x : s) = y : fromEscaped s where
+     mp = [('\"','\"'), ('\\','\\'), ('r', '\r'), ('n','\n'), ('t','\t'),('0','\0')]
+     Just y = lookup x mp
+fromEscaped (x : s) = x : fromEscaped s
+
+}
 
