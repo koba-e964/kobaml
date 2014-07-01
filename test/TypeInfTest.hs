@@ -12,7 +12,23 @@ main :: IO ()
 main = print =<< runTestTT tests
 
 tests :: Test
-tests = TestList [testGeneralize]
+tests = TestList [testTypeSchemeEqual, testGeneralize]
+
+testTypeSchemeEqual :: Test
+testTypeSchemeEqual = let
+  x = TypeVar "x"
+  y = TypeVar "y"
+   in 
+  TestLabel "test-typeSchemeEqual" $ TestList [
+    TestCase $ assertBool "forall x.x /= forall y.y" (typeSchemeEqual (Forall (Set.singleton x) (TVar x)) (Forall (Set.singleton y) (TVar y)))
+    ,TestCase $ assertBool "forall x. [x] == forall y. y" (not $ typeSchemeEqual (Forall (Set.singleton x) (TList $ TVar x)) (Forall (Set.singleton y) (TVar y)))
+    ,TestCase $ assertBool "x == y" (not $ typeSchemeEqual (Forall Set.empty (TVar x)) (Forall Set.empty (TVar y)))
+    ,TestCase $ assertBool "x == forall y. y" (not $ typeSchemeEqual (Forall Set.empty (TVar x)) (Forall (Set.singleton y) (TVar y)))
+    ,TestCase $ assertBool "int /= int" (typeSchemeEqual (Forall Set.empty intType) (Forall Set.empty intType))
+    ,TestCase $ assertBool "int == bool" (not $ typeSchemeEqual (Forall Set.empty intType) (Forall Set.empty boolType))
+    ,TestCase $ assertBool "int == forall x. int" (not $ typeSchemeEqual (Forall Set.empty intType) (Forall (Set.singleton x) intType))
+  ]
+
 
 testGeneralize :: Test
 testGeneralize = let

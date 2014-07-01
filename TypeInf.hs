@@ -5,6 +5,7 @@ import Control.Monad.State
 import Control.Monad.ST
 import Control.Monad.Except
 import qualified Data.Map.Strict as Map
+import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.List as List
 import Data.STRef
@@ -14,6 +15,40 @@ import CDef
 
 
 type St m = ExceptT TypeError (StateT Int m) -- the state of the type inferrer
+
+typeSchemeEqual :: TypeScheme -> TypeScheme -> Bool
+typeSchemeEqual (Forall set1 ty1) (Forall set2 ty2)
+    | Set.size set1 == Set.size set2 = 
+        case typeSchemeEqualSub set1 ty1 set2 ty2 of
+          Just eqs -> consistent eqs;
+          Nothing  -> False;
+    | otherwise  = False
+  
+typeSchemeEqualSub :: Set TypeVar -> Type -> Set TypeVar -> Type -> Maybe [(TypeVar, TypeVar)]
+typeSchemeEqualSub set1 (TVar x) set2 (TVar y)
+  | Set.member x set1 && Set.member y set2 = Just [(x, y)]
+  | Set.notMember x set1 && Set.notMember y set2 && x == y = Just []
+  | otherwise  = Nothing
+typeSchemeEqualSub set1 (TFun a1 b1) set2 (TFun a2 b2) = do
+  ra <- typeSchemeEqualSub set1 a1 set2 a2
+  rb <- typeSchemeEqualSub set1 b1 set2 b2
+  return $ ra ++ rb
+typeSchemeEqualSub set1 (TPair a1 b1) set2 (TPair a2 b2) = do
+  ra <- typeSchemeEqualSub set1 a1 set2 a2
+  rb <- typeSchemeEqualSub set1 b1 set2 b2
+  return $ ra ++ rb
+typeSchemeEqualSub set1 (TList a) set2 (TList b) = 
+  typeSchemeEqualSub set1 a set2 b
+typeSchemeEqualSub _set1 (TConc a) _set2 (TConc b) =
+  if a == b then Just [] else Nothing
+typeSchemeEqualSub _ _ _ _ = Nothing
+
+consistent :: [(TypeVar, TypeVar)] -> Bool
+consistent ls = subC ls Map.empty Map.empty where
+  subC [] _ _ = True
+  subC ((t1,t2):xs) m1 m2
+    | Map.member t1 m1    && Map.member t2 m2    = Map.lookup t1 m1 == Just t2 && Map.lookup t2 m2 == Just t1 && subC xs m1 m2
+    | Map.notMember t1 m1 && Map.notMember t2 m2 = subC xs (Map.insert t1 t2 m1) (Map.insert t2 t1 m2)
 
 addCons :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 addCons var ty (tmap, cons) =
