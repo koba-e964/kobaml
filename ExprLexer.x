@@ -62,7 +62,8 @@ tokens :-
   ".."        { \_->DDOT     }
 
   "#seq"      { \_->SSEQ }
-
+  "'"         { \_->SQUOTE }
+  "->"        { \_->ARROW }
   $digit+ { \n ->INT (read n) }
   $alpha [$alpha $digit \_ \']* { ID }
   \"((\\$esc) | $ascii_x_esc)*\" { STR }

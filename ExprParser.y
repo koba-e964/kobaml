@@ -13,6 +13,7 @@ import Control.Exception (throw)
 
 %name      exparse     command
 %name      exParseCmds commands
+%name      tparse      ty
 %tokentype {Token}
 %error     {parseError} 
 %monad {Either ParseError} {(>>=)} {Right}
@@ -56,6 +57,8 @@ EOF {EOF}
 "#seq" {SSEQ}
 INT {INT $$}
 ID {ID $$}
+'\'' {SQUOTE}
+"->" {ARROW}
 
 
 %%
@@ -273,6 +276,16 @@ PLUS   { EAdd }
 |','   { EPair}
 ;
 
+{- Parser for type -}
+
+ty  : aty "->" ty {TFun $1 $3}
+    | aty        {$1}
+aty : ID         {TConc $1}
+    | '\'' ID    {TVar (TypeVar $2)}
+    | LPAR ty RPAR {$2}
+
+
+
 {
 
 mytrue  = EConst (VBool True)
@@ -293,6 +306,9 @@ commandOfString = exparse . alexScanTokens
 
 commandsOfString :: String -> Either ParseError [Command]
 commandsOfString = exParseCmds . alexScanTokens
+
+typeOfString :: String -> Either ParseError Type
+typeOfString = tparse . alexScanTokens
 
 fromEscaped :: String -> String
 fromEscaped "\"" = ""

@@ -18,6 +18,6 @@ cabal-version:       >=1.8
 executable kobaml
   main-is:             Main.hs
   -- other-modules:       
-  build-depends:       base ==4.5.*, mtl ==2.2.*, containers ==0.5.*, array ==0.4.*, parsec ==3.1.*, HUnit ==1.2.*
+  build-depends:       base ==4.5.*, mtl ==2.2.*, containers ==0.5.*, array ==0.4.*, HUnit ==1.2.*
   build-tools:         alex, happy
   other-modules:       ExprLexer, ExprParser

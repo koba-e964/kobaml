@@ -35,5 +35,6 @@ data Token
     | SSEQ {- #seq for forcing to evaluate, infix -}
     | STR String
     | EOC
+    | SQUOTE {- single quotation, '\'' -}
     | EOF
     deriving (Eq, Show)
