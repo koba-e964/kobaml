@@ -49,6 +49,7 @@ consistent ls = subC ls Map.empty Map.empty where
   subC ((t1,t2):xs) m1 m2
     | Map.member t1 m1    && Map.member t2 m2    = Map.lookup t1 m1 == Just t2 && Map.lookup t2 m2 == Just t1 && subC xs m1 m2
     | Map.notMember t1 m1 && Map.notMember t2 m2 = subC xs (Map.insert t1 t2 m1) (Map.insert t2 t1 m2)
+    | otherwise                                  = False
 
 addCons :: TypeVar -> Type -> (TypeSubst, [TypeCons]) -> (TypeSubst, [TypeCons])
 addCons var ty (tmap, cons) =

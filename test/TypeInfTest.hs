@@ -18,6 +18,7 @@ testTypeSchemeEqual :: Test
 testTypeSchemeEqual = let
   x = TypeVar "x"
   y = TypeVar "y"
+  z = TypeVar "z"
    in 
   TestLabel "test-typeSchemeEqual" $ TestList [
     TestCase $ assertBool "forall x.x /= forall y.y" (typeSchemeEqual (Forall (Set.singleton x) (TVar x)) (Forall (Set.singleton y) (TVar y)))
@@ -27,6 +28,8 @@ testTypeSchemeEqual = let
     ,TestCase $ assertBool "int /= int" (typeSchemeEqual (Forall Set.empty intType) (Forall Set.empty intType))
     ,TestCase $ assertBool "int == bool" (not $ typeSchemeEqual (Forall Set.empty intType) (Forall Set.empty boolType))
     ,TestCase $ assertBool "int == forall x. int" (not $ typeSchemeEqual (Forall Set.empty intType) (Forall (Set.singleton x) intType))
+    ,TestCase $ assertBool "forall x y. x -> x == forall y z. y -> z" (not $ typeSchemeEqual (Forall (Set.fromList [x, y]) (TFun (TVar x) (TVar x))) (Forall (Set.fromList [y,z]) (TFun (TVar y) (TVar z))))
+    ,TestCase $ assertBool "forall x y. x -> x /= forall y z. y -> y" (typeSchemeEqual (Forall (Set.fromList [x, y]) (TFun (TVar x) (TVar x))) (Forall (Set.fromList [y,z]) (TFun (TVar y) (TVar y))))
   ]
 
 
