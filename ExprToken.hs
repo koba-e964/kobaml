@@ -24,6 +24,7 @@ data Token
     | MINUS
     | TIMES
     | DIV
+    | MOD
     | CONS
     | LBRACKET
     | RBRACKET

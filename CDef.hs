@@ -124,6 +124,7 @@ data Expr  = EConst Value
      	   | ESub Expr Expr
 	   | EMul Expr Expr
 	   | EDiv Expr Expr
+	   | EMod Expr Expr
 	   | ELt  Expr Expr
            | EEq  Expr Expr
 	   | EIf Expr Expr Expr

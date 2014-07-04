@@ -43,6 +43,7 @@ eval (EAdd v1 v2) = join $ op2Int (+) <$> (eval v1) <*> (eval v2)
 eval (ESub v1 v2) = join $ op2Int (-) <$> (eval v1) <*> (eval v2)
 eval (EMul v1 v2) = join $ op2Int (*) <$> (eval v1) <*> (eval v2)
 eval (EDiv v1 v2) = join $ op2Int div <$> (eval v1) <*> (eval v2)
+eval (EMod v1 v2) = join $ op2Int mod <$> (eval v1) <*> (eval v2)
 eval (ELt e1 e2)  = join $ op2IntBool (<) <$> (eval e1) <*> (eval e2)
 eval (EEq e1 e2)  = join $ op2IntBool (==) <$> (eval e1) <*> (eval e2)
 eval (EIf vc v1 v2) = do

@@ -39,6 +39,7 @@ tokens :-
   "-"         { \_->MINUS }
   "*"         { \_->TIMES }
   "/"         { \_->DIV }
+  "mod"       { \_->MOD }
   "/="        { \_->NEQ }
   "->"        { \_->ARROW } 
   "|"         { \_->BAR } 

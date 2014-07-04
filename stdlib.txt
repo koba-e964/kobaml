@@ -107,3 +107,9 @@ let times n f =
 let times_s n f =
   let rec sub n x = if n <= 0 then x else let z = f x in z #seq sub (n-1) z in
   sub n;;
+
+let bit_count n = 
+  let rec sub_bc n k = k #seq (match n with
+    | 0 -> k
+    | m -> if n mod 2 = 0 then sub_bc (n/2) k else sub_bc (n/2) (k+1)
+   ) in (if n < 0 then 0 else sub_bc n 0) ;;

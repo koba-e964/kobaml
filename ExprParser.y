@@ -39,6 +39,7 @@ PLUS {PLUS}
 MINUS {MINUS}
 TIMES {TIMES}
 DIV {DIV}
+MOD {MOD}
 CONS {CONS}
 LBRACKET {LBRACKET}
 RBRACKET {RBRACKET}
@@ -191,6 +192,7 @@ expr5:
 expr6:
   expr6 TIMES expr7 { EMul $1 $3 }
 | expr6 DIV   expr7 { EDiv $1 $3 }
+| expr6 MOD   expr7 { EMod $1 $3 }
 | expr7             { $1 }
 ;
 
