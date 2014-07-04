@@ -20,6 +20,13 @@ op2Int :: (Int -> Int -> Int) -> Value -> Value -> EV Value
 op2Int f (VLInt v1) (VLInt v2) = return $ VLInt (f v1 v2)
 op2Int _ _v1 _v2 = evalError $ "int required"
 
+-- The same as op2Int, but checks the second argument and returns error if it is 0.
+op2IntDiv :: (Int -> Int -> Int) -> Value -> Value -> EV Value
+op2IntDiv f (VLInt v1) (VLInt v2)
+  | v2 == 0   = evalError $ "Division by zero: " ++ show v1 ++ " / 0"
+  | otherwise = return $ VLInt (f v1 v2)
+op2IntDiv _ _v1 _v2 = evalError $ "int required"
+
 op2IntBool :: (Int -> Int -> Bool) -> Value -> Value -> EV Value
 op2IntBool f (VLInt v1) (VLInt v2) = return $ VLBool (f v1 v2)
 op2IntBool _ _v1 _v2 = evalError $ "int required"
@@ -42,8 +49,8 @@ eval (EVar (Name name)) = do
 eval (EAdd v1 v2) = join $ op2Int (+) <$> (eval v1) <*> (eval v2)
 eval (ESub v1 v2) = join $ op2Int (-) <$> (eval v1) <*> (eval v2)
 eval (EMul v1 v2) = join $ op2Int (*) <$> (eval v1) <*> (eval v2)
-eval (EDiv v1 v2) = join $ op2Int div <$> (eval v1) <*> (eval v2)
-eval (EMod v1 v2) = join $ op2Int mod <$> (eval v1) <*> (eval v2)
+eval (EDiv v1 v2) = join $ op2IntDiv div <$> (eval v1) <*> (eval v2)
+eval (EMod v1 v2) = join $ op2IntDiv mod <$> (eval v1) <*> (eval v2)
 eval (ELt e1 e2)  = join $ op2IntBool (<) <$> (eval e1) <*> (eval e2)
 eval (EEq e1 e2)  = join $ op2IntBool (==) <$> (eval e1) <*> (eval e2)
 eval (EIf vc v1 v2) = do
