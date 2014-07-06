@@ -24,6 +24,8 @@ intType :: Type
 intType = TConc "int"
 boolType :: Type
 boolType = TConc "bool"
+stringType :: Type
+stringType = TConc "string"
 
 data TypeVar = TypeVar !String deriving (Eq, Ord)
 data TypeCons = TypeEqual !Type !Type deriving (Eq)
@@ -110,6 +112,7 @@ data ValueLazy =
      | VLCons Thunk Thunk
      | VLPair Thunk Thunk
      | VLNil
+     | VLStr !String
 
 type Thunk =
      IORef ThunkData
@@ -137,6 +140,7 @@ data Expr  = EConst Value
            | EPair Expr Expr
 	   | ESeq Expr Expr {- Force evaluation of expr1 before evaluation of expr2 -}
            | ENil
+           | EStr String {- String -}
            deriving (Eq, Show)
 data Pat   = PConst Value
            | PVar   Name

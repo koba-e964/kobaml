@@ -60,7 +60,7 @@ INT {INT $$}
 ID {ID $$}
 '\'' {SQUOTE}
 "->" {ARROW}
-
+STR  { STR $$ }
 
 %%
 
@@ -217,6 +217,7 @@ simple_expr:
 | LPAR expr ',' expr RPAR { EPair $2 $4 }
 | list              { $1 }
 | nil               { ENil }
+| STR               { EStr $ fromEscaped $1 }
 ;
 
 simple_expr2:
@@ -224,6 +225,9 @@ simple_expr2:
 | ID                { EVar   (Name $1) }
 | TRUE              { mytrue }
 | FALSE             { myfalse } 
+| list              { $1 }
+| nil               { ENil }
+| STR               { EStr $ fromEscaped $1 }
 ;
 
 section:

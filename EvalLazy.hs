@@ -97,6 +97,7 @@ eval ENil          = return VLNil
 eval (ESeq ea eb)  = do
      _ <- eval ea
      eval eb
+eval (EStr str) = return $ VLStr str
 
 evalApp :: Value -> Thunk -> EV Value
 evalApp fval ath =
@@ -202,6 +203,7 @@ showValueLazy (VLCons tcar tcdr) = do
           sr <- sub t2 t3 (n-1)
           return $ sv ++ ", " ++ sr
         _     -> error "(>_<) < weird... the last cell of the list is not nil..."
+showValueLazy (VLStr str) = return str
 showValueLazy (VLPair a b) = do
     va <- evalThunk a
     sa <- showValueLazy va

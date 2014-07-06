@@ -184,6 +184,8 @@ gatherConstraints !env !expr =
       (_ , ca) <- gatherConstraints env ea
       (tb, cb) <- gatherConstraints env eb
       return (tb, ca ++ cb)
+    EStr _str -> do
+      return (stringType, [])
 
 gatherConsHelper :: (Monad m, Functor m) => TypeEnv -> [(Expr, Type)] -> St m [TypeCons]
 
