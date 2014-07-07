@@ -1,12 +1,13 @@
 {-# LANGUAGE BangPatterns, DeriveDataTypeable #-}
 module CDef where
 
-import Data.IORef
+import Control.Monad.Primitive
 import qualified Data.List as List
 import Data.Typeable
 import Control.Exception
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Primitive.MutVar
 import Data.Set (Set)
 import qualified Data.Set as Set
 {------------------
@@ -105,20 +106,20 @@ instance (Show Value) where
   show (VPair a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
   show VNil = "[]"
 
-data ValueLazy = 
+data ValueLazy m = 
      VLInt Int
      | VLBool Bool
-     | VLFun Name EnvLazy Expr
-     | VLCons Thunk Thunk
-     | VLPair Thunk Thunk
+     | VLFun Name (EnvLazy m) Expr
+     | VLCons (Thunk m) (Thunk m)
+     | VLPair (Thunk m) (Thunk m)
      | VLNil
      | VLStr !String
 
-type Thunk =
-     IORef ThunkData
-data ThunkData =
-     Thunk EnvLazy Expr
-     | ThVal ValueLazy {- Memoized -}
+type Thunk m =
+     MutVar (PrimState m) (ThunkData m)
+data ThunkData m =
+     Thunk (EnvLazy m) Expr
+     | ThVal (ValueLazy m) {- Memoized -}
 
 
 data Expr  = EConst Value
@@ -157,7 +158,7 @@ data Command
   deriving (Eq, Show)
 
 type Env = Map String Value
-type EnvLazy = Map String Thunk
+type EnvLazy m = Map String (Thunk m)
 
 
 {-------------------

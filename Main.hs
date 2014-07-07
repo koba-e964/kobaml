@@ -8,9 +8,9 @@ import System.IO
 import CDef hiding (Value, Env)
 import EvalLazy
 import ExprParser
-import Data.IORef
 import qualified Data.Map as LMap
 import qualified Data.Map.Strict as Map
+import Data.Primitive.MutVar
 import TypeInf
 
 convertTypeError :: (Functor m, Monad m) => ExceptT TypeError m a -> ExceptT SomeError m a
@@ -22,7 +22,7 @@ convertEvalError = mapExceptT $ fmap $ either (Left . SEEval) Right
 runSt :: (Functor m, Monad m) => St m a -> ExceptT SomeError m a
 runSt action = convertTypeError $ (mapExceptT $ \x -> fmap fst (runStateT x 0)) $ action
 
-runEV :: EnvLazy -> EV a -> ExceptT SomeError IO (a, EnvLazy)
+runEV :: EnvLazy IO -> EV IO a -> ExceptT SomeError IO (a, EnvLazy IO)
 runEV env action = convertEvalError $ (mapExceptT $ k) $ action where
     k state' = do
       (res, newenv) <- runStateT state' env
@@ -31,7 +31,7 @@ runEV env action = convertEvalError $ (mapExceptT $ k) $ action where
         Right y -> return $ Right (y, newenv)
 
 
-processExpr :: String -> TypeEnv -> Env -> Expr -> Bool -> ExceptT SomeError IO (TypeScheme, Value)
+processExpr :: String -> TypeEnv -> EnvLazy IO -> Expr -> Bool -> ExceptT SomeError IO (TypeScheme, ValueLazy IO)
 processExpr !name !tenv !venv !expr !showing = do
   ty <- runSt $ typeInfer tenv expr
   lift $ putStrLn $ name ++ " : " ++ show ty
@@ -49,7 +49,7 @@ liftIOToStIO :: IO a -> St IO a
 liftIOToStIO x = lift $ lift x
 
 
-repl :: TypeEnv -> Env -> IO ()
+repl :: TypeEnv -> EnvLazy IO -> IO ()
 repl !tenv !venv = do
     putStr "> "
     cmdOrErr <- readCmd
@@ -65,13 +65,13 @@ repl !tenv !venv = do
 		      repl tenv venv
 	          Right (newtenv, newvenv) -> repl newtenv newvenv
 
-processCmd :: Command -> TypeEnv -> Env -> ExceptT SomeError IO (TypeEnv, Env)
+processCmd :: Command -> TypeEnv -> Env IO -> ExceptT SomeError IO (TypeEnv, Env IO)
 processCmd !cmd !tenv !venv =
             case cmd of
                  CLet (Name name) expr -> do
                      (!ty, _) <- processExpr name tenv venv expr True
                      let newtenv = Map.insert name ty     tenv
-		     thunk <- lift $ newIORef $ Thunk venv expr
+		     thunk <- lift $ newMutVar $ Thunk venv expr
                      let newvenv = LMap.insert name thunk venv
                      return (newtenv, newvenv)
                  CRLets bindings       -> do
@@ -84,13 +84,13 @@ processCmd !cmd !tenv !venv =
                  CExp expr -> processExpr "-" tenv venv expr True >> return (tenv, venv)
                  CQuit     -> error "(>_<)(>_<)"
 
-nextEnv :: Command -> (TypeEnv, Env) -> ExceptT SomeError IO (TypeEnv, Env)
+nextEnv :: Command -> (TypeEnv, Env IO) -> ExceptT SomeError IO (TypeEnv, Env IO)
 nextEnv !cmd (!tenv, !venv) =
 	case cmd of
             CLet (Name name) expr -> do
                      (!ty, _) <- processExpr name tenv venv expr False
                      let newtenv = Map.insert name ty     tenv
-		     thunk <- lift $ newIORef $ Thunk venv expr
+		     thunk <- lift $ newMutVar $ Thunk venv expr
                      let newvenv = LMap.insert name thunk venv
                      return (newtenv, newvenv)
             CRLets bindings       -> do
@@ -103,14 +103,14 @@ nextEnv !cmd (!tenv, !venv) =
             CExp  _   -> return (tenv, venv)
             CQuit     -> return (tenv, venv)
 
-loadFile :: FilePath -> (TypeEnv, Env) -> IO (TypeEnv, Env)
+loadFile :: FilePath -> (TypeEnv, EnvLazy IO) -> IO (TypeEnv, EnvLazy IO)
 loadFile path (tenv, env) = do
     cont <- readFile path
     case commandsOfString cont of
       Left x -> error $ "Error in loading \"" ++ path ++ "\":\n" ++ show x
       Right cmds -> sub cmds (tenv, env)
         where
-	  sub [] (te, ve) = return (te, ve) :: IO (TypeEnv, Env)
+	  sub [] (te, ve) = return (te, ve) :: IO (TypeEnv, EnvLazy IO)
 	  sub (y : ys) (te, ve) = do
               Right newtve   <- runExceptT $ catchError (nextEnv y (te, ve)) (\_ -> return (te, ve))
               sub ys newtve
