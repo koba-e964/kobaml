@@ -65,7 +65,7 @@ repl !tenv !venv = do
 		      repl tenv venv
 	          Right (newtenv, newvenv) -> repl newtenv newvenv
 
-processCmd :: Command -> TypeEnv -> Env IO -> ExceptT SomeError IO (TypeEnv, Env IO)
+processCmd :: Command -> TypeEnv -> EnvLazy IO -> ExceptT SomeError IO (TypeEnv, EnvLazy IO)
 processCmd !cmd !tenv !venv =
             case cmd of
                  CLet (Name name) expr -> do
@@ -84,7 +84,7 @@ processCmd !cmd !tenv !venv =
                  CExp expr -> processExpr "-" tenv venv expr True >> return (tenv, venv)
                  CQuit     -> error "(>_<)(>_<)"
 
-nextEnv :: Command -> (TypeEnv, Env IO) -> ExceptT SomeError IO (TypeEnv, Env IO)
+nextEnv :: Command -> (TypeEnv, EnvLazy IO) -> ExceptT SomeError IO (TypeEnv, EnvLazy IO)
 nextEnv !cmd (!tenv, !venv) =
 	case cmd of
             CLet (Name name) expr -> do
