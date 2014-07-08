@@ -82,21 +82,20 @@ eval (EFun name expr) = do
 eval (EApp func argv) = do
      env <- get
      join $ evalApp `liftM` eval func `ap` liftToEV (newMutVar (Thunk env argv))
-eval (ECons e1 e2) = do
-     env <- get
-     t1 <- createThunk env e1
-     t2 <- createThunk env e2
-     return $ VLCons t1 t2
-eval (EPair e1 e2) = do
-     env <- get
-     t1 <- createThunk env e1
-     t2 <- createThunk env e2
-     return $ VLPair t1 t2
+eval (ECons e1 e2) = constructFromThunk2 VLCons e1 e2
+eval (EPair e1 e2) = constructFromThunk2 VLPair e1 e2
 eval ENil          = return VLNil
 eval (ESeq ea eb)  = do
      _ <- eval ea
      eval eb
 eval (EStr str) = return $ VLStr str
+
+constructFromThunk2 :: (PrimMonad m, Monad m) => (Thunk m -> Thunk m -> ValueLazy m) -> Expr -> Expr -> EV m (ValueLazy m)
+constructFromThunk2 cons e1 e2 = do
+     env <- get
+     t1 <- createThunk env e1
+     t2 <- createThunk env e2
+     return $ cons t1 t2
 
 evalApp :: (PrimMonad m, Monad m) => ValueLazy m -> Thunk m -> EV m (ValueLazy m)
 evalApp fval ath =
@@ -149,10 +148,7 @@ tryMatch thunk env pat = case pat of
       VLCons vcar vcdr -> do
         ex <- tryMatch vcar env pcar
         ey <- tryMatch vcdr env pcdr
-        return $ do
-          mex <- ex
-          mey <- ey
-          return $! mey `Map.union` mex `Map.union` env
+        return $ combine ex ey
       _notused       -> return Nothing
   PPair pfst psnd   -> do
     val <- evalThunk thunk
@@ -160,16 +156,18 @@ tryMatch thunk env pat = case pat of
       VLPair vfst vsnd -> do
         ex <- tryMatch vfst env pfst
         ey <- tryMatch vsnd env psnd
-        return $ do
-          mex <- ex
-          mey <- ey
-          return $! mey `Map.union` mex `Map.union` env
+        return $ combine ex ey
       _notused         -> return Nothing
   PNil              -> do
     val <- evalThunk thunk
     case val of
       VLNil  -> return $ Just env
       _      -> return Nothing
+  where
+   combine ex ey = do
+     mex <- ex
+     mey <- ey
+     return $! mey `Map.union` mex `Map.union` env
 
 evalThunk :: (PrimMonad m, Monad m) => Thunk m -> EV m (ValueLazy m)
 evalThunk thunk = do
