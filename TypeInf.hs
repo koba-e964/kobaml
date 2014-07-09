@@ -5,6 +5,7 @@ import Control.Monad.State
 import Control.Monad.ST
 import Control.Monad.Except
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -29,14 +30,10 @@ typeSchemeEqualSub set1 (TVar x) set2 (TVar y)
   | Set.member x set1 && Set.member y set2 = Just [(x, y)]
   | Set.notMember x set1 && Set.notMember y set2 && x == y = Just []
   | otherwise  = Nothing
-typeSchemeEqualSub set1 (TFun a1 b1) set2 (TFun a2 b2) = do
-  ra <- typeSchemeEqualSub set1 a1 set2 a2
-  rb <- typeSchemeEqualSub set1 b1 set2 b2
-  return $ ra ++ rb
-typeSchemeEqualSub set1 (TPair a1 b1) set2 (TPair a2 b2) = do
-  ra <- typeSchemeEqualSub set1 a1 set2 a2
-  rb <- typeSchemeEqualSub set1 b1 set2 b2
-  return $ ra ++ rb
+typeSchemeEqualSub set1 (TFun a1 b1) set2 (TFun a2 b2) = 
+  (++) `fmap` typeSchemeEqualSub set1 a1 set2 a2 `ap` typeSchemeEqualSub set1 b1 set2 b2
+typeSchemeEqualSub set1 (TPair a1 b1) set2 (TPair a2 b2) = 
+  (++) `fmap` typeSchemeEqualSub set1 a1 set2 a2 `ap` typeSchemeEqualSub set1 b1 set2 b2
 typeSchemeEqualSub set1 (TList a) set2 (TList b) = 
   typeSchemeEqualSub set1 a set2 b
 typeSchemeEqualSub _set1 (TConc a) _set2 (TConc b) =
@@ -59,9 +56,9 @@ addCons var ty (tmap, cons) =
     (conv, newcons)
 
 unifyAll :: Monad m => [TypeCons] -> ExceptT TypeError m TypeSubst
-unifyAll cons = sub tmEmpty cons where
+unifyAll = sub tmEmpty where
          sub m [] = return m
-         sub m ((TypeEqual ty1 ty2):rest) = do
+         sub m (TypeEqual ty1 ty2 : rest) = do
              (newm, newrest) <- unify ty1 ty2 (m, rest)
              sub newm newrest
 
@@ -94,10 +91,7 @@ errorRecursive tvar ty mapc = throwError $ TypeError $ "Cannot construct recursi
 
 
 subst :: TypeSubst -> Type -> Type
-subst tmap (TVar v) =
-  case Map.lookup v tmap of
-    Just t -> t
-    Nothing -> TVar v
+subst tmap (TVar v) = fromMaybe (TVar v) (Map.lookup v tmap)
 subst tmap (TFun x y) = TFun (subst tmap x) (subst tmap y)
 subst _    (TConc x)  = TConc x
 subst tmap (TList a) = TList (subst tmap a)
@@ -105,7 +99,7 @@ subst tmap (TPair x y) = TPair (subst tmap x) (subst tmap y)
 
 substTypeScheme :: TypeSubst -> TypeScheme -> TypeScheme
 substTypeScheme tmap (Forall vars ty) =
-  let newtmap = Set.foldl' (\m x -> Map.delete x m) tmap vars in
+  let newtmap = Set.foldl' (flip Map.delete) tmap vars in
     Forall vars (subst newtmap ty)
 
 newType :: (Monad m, Functor m) => St m Type
@@ -117,7 +111,7 @@ newTypeVar :: (Monad m, Functor m) => St m TypeVar
 newTypeVar = do
   v <- get
   put (v+1)
-  return $ TypeVar $ "t" ++ show v
+  return $ TypeVar $ 't' : show v
 
 gatherConstraints :: (Monad m, Functor m) => TypeEnv -> Expr -> St m (Type, [TypeCons])
 
@@ -168,7 +162,7 @@ gatherConstraints !env !expr =
       results <- forM ls (gatherConstraintsPatExpr env)
       (ty, cons) <- gatherConstraints env mexpr
       e <- newType
-      return (e, concat (List.map ( \ (pty, ety, pcons) -> (ty `typeEqual` pty) : (e `typeEqual` ety) : pcons) results) ++ cons)
+      return (e, concatMap ( \ (pty, ety, pcons) -> (ty `typeEqual` pty) : (e `typeEqual` ety) : pcons) results ++ cons)
     ERLets bindings lexpr -> do
       (newtenv, cons) <- tyRLetBindings env bindings
       (tye, ce) <- gatherConstraints newtenv lexpr
@@ -179,17 +173,16 @@ gatherConstraints !env !expr =
       return (TPair tfst tsnd, cfst ++ csnd)
     ENil -> do
       a <- newType
-      return $ (TList a, [])
+      return (TList a, [])
     ESeq ea eb -> do
       (_ , ca) <- gatherConstraints env ea
       (tb, cb) <- gatherConstraints env eb
       return (tb, ca ++ cb)
-    EStr _str -> do
-      return (stringType, [])
+    EStr _str -> return (stringType, [])
 
 gatherConsHelper :: (Monad m, Functor m) => TypeEnv -> [(Expr, Type)] -> St m [TypeCons]
 
-gatherConsHelper tenv ls = fmap List.concat $ sequence $ List.map f ls where
+gatherConsHelper tenv ls = fmap List.concat $ mapM f ls where
   f (expr, tyEx) = do
     (tyAc, cons) <-  gatherConstraints tenv expr
     return $ (tyEx `typeEqual` tyAc) : cons
@@ -197,7 +190,7 @@ gatherConsHelper tenv ls = fmap List.concat $ sequence $ List.map f ls where
 gatherConstraintsPatExpr :: (Monad m, Functor m) => TypeEnv -> (Pat, Expr) -> St m (Type, Type, [TypeCons])
 gatherConstraintsPatExpr tenv (pat, expr) = do
   (ty, cons, penv) <- gatherConstraintsPat pat
-  (tye, econs) <- gatherConstraints (Map.union penv tenv) expr
+  (tye, econs) <- gatherConstraints (penv `Map.union` tenv) expr
   return (ty, tye, econs ++ cons)
 
 gatherConstraintsPat :: (Monad m, Functor m) => Pat -> St m (Type, [TypeCons], TypeEnv)
@@ -213,18 +206,18 @@ gatherConstraintsPat PNil = do
 gatherConstraintsPat (PCons pcar pcdr) = do
   (tcar, ccar, ecar) <- gatherConstraintsPat pcar
   (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
-  return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr, Map.union ecar ecdr)
+  return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr, ecar `Map.union` ecdr)
 gatherConstraintsPat (PPair pcar pcdr) = do
   (tcar, ccar, ecar) <- gatherConstraintsPat pcar
   (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
-  return (TPair tcar tcdr, ccar ++ ccdr, Map.union ecar ecdr)
+  return (TPair tcar tcdr, ccar ++ ccdr, ecar `Map.union` ecdr)
 
 tyRLetBindings :: (Monad m, Functor m) => TypeEnv -> [(Name, Expr)] -> St m (TypeEnv, [TypeCons])
 tyRLetBindings tenv bindings = do
   defmap <- forM bindings $ \(Name fname, fexpr) -> do
     a <- newType
     return (fname, fexpr, a)
-  let midmap = List.foldr ( \ (fname, _, a) -> Map.insert fname (fromType $ a)) tenv defmap
+  let midmap = List.foldr ( \ (fname, _, a) -> Map.insert fname (fromType a)) tenv defmap
   tcs <- forM defmap $ \ (_, fexpr, a) -> do
     (ty, con) <- gatherConstraints midmap fexpr
     return $ (a `typeEqual` ty) : con
@@ -247,7 +240,7 @@ generalize !tenv !ty = generalizeTypeScheme tenv (fromType ty)
 
 generalizeTypeScheme :: TypeEnv -> TypeScheme -> TypeScheme
 generalizeTypeScheme env tysch@(Forall vars tyy) =
-    let varlist = List.map TypeVar $ List.map (:[]) ['a'..'z'] ++ List.map (\x -> "t" ++ show x) [(0 :: Integer)..]
+    let varlist = List.map TypeVar $ List.map (:[]) ['a'..'z'] ++ List.map (\x -> 't' : show x) [(0 :: Integer)..]
         free = freeVarsTypeScheme tysch
         wholefree = Map.foldl' (\ f ty -> Set.difference f (freeVarsTypeScheme ty)) free env
         freeEnv = Map.foldl' (\f ty -> Set.union f (freeVarsTypeScheme ty)) Set.empty env
@@ -262,6 +255,5 @@ instantiate (Forall vars ty) = do
     varmap <- forM (Set.toList vars) $ \var -> fmap (var,) newType
     return $ runST $ do
       x <- newSTRef ty
-      forM_ varmap $ \ (var, cvarty) -> do
-          modifySTRef x (subst (Map.singleton var cvarty))
+      forM_ varmap $ \ (var, cvarty) -> modifySTRef x (subst (Map.singleton var cvarty))
       readSTRef x
