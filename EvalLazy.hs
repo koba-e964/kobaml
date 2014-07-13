@@ -2,6 +2,7 @@
 module EvalLazy where
 
 import Control.Monad.Except
+import Control.Monad.Trans.Maybe
 import Control.Monad.State
 import Control.Monad.Primitive
 import qualified Data.Map as Map
@@ -119,7 +120,7 @@ getNewEnvInRLets bindings oldenv = mnewenv where
 tryMatchAll :: (PrimMonad m, Monad m) => Thunk m -> EnvLazy m -> [(Pat, Expr)] -> EV m (ValueLazy m)
 tryMatchAll _    _  []                   = evalError "Matching not exhaustive"
 tryMatchAll thunk env ((pat, expr) : rest) = do
-  pickOne <- tryMatch thunk env pat
+  pickOne <- runMaybeT $ tryMatch thunk env pat
   case pickOne of
     Nothing     -> tryMatchAll thunk env rest
     Just newenv -> do
@@ -128,46 +129,41 @@ tryMatchAll thunk env ((pat, expr) : rest) = do
        put env
        return ret
 
-tryMatch :: (PrimMonad m, Monad m) => Thunk m -> EnvLazy m -> Pat -> EV m (Maybe (EnvLazy m))
+tryMatch :: (PrimMonad m, Monad m) => Thunk m -> EnvLazy m -> Pat -> MaybeT (EV m) (EnvLazy m)
 tryMatch thunk env pat = case pat of
   PConst (VBool b) -> do
-    val <- evalThunk thunk
+    val <- lift $ evalThunk thunk
     case val of
-      VLBool c -> if c == b then return $ Just env else return Nothing
-      _	       -> return Nothing
+      VLBool c | c == b -> return $ env 
+      _                 -> fail ""
   PConst (VInt b) -> do
-    val <- evalThunk thunk
+    val <- lift $ evalThunk thunk
     case val of
-      VLInt c -> if c == b then return $ Just env else return Nothing
-      _	      -> return Nothing
+      VLInt c | c == b -> return $ env
+      _                -> fail ""
   PConst _     -> error "weird const pattern... (>_<)"
-  PVar (Name vname) -> return $ Just $! Map.insert vname thunk env
+  PVar (Name vname) -> return  $! Map.insert vname thunk env
   PCons pcar pcdr   -> do
-    val <- evalThunk thunk
+    val <- lift $ evalThunk thunk
     case val of
       VLCons vcar vcdr -> do
         ex <- tryMatch vcar env pcar
         ey <- tryMatch vcdr env pcdr
-        return $ combine ex ey
-      _notused       -> return Nothing
+        return $! ey `Map.union` ex `Map.union` env
+      _notused       -> fail ""
   PPair pfst psnd   -> do
-    val <- evalThunk thunk
+    val <- lift $ evalThunk thunk
     case val of
       VLPair vfst vsnd -> do
         ex <- tryMatch vfst env pfst
         ey <- tryMatch vsnd env psnd
-        return $ combine ex ey
-      _notused         -> return Nothing
+        return $! ey `Map.union` ex `Map.union` env
+      _notused         -> fail ""
   PNil              -> do
-    val <- evalThunk thunk
+    val <- lift $ evalThunk thunk
     case val of
-      VLNil  -> return $ Just env
-      _      -> return Nothing
-  where
-   combine ex ey = do
-     mex <- ex
-     mey <- ey
-     return $! mey `Map.union` mex `Map.union` env
+      VLNil  -> return $ env
+      _      -> fail ""
 
 evalThunk :: (PrimMonad m, Monad m) => Thunk m -> EV m (ValueLazy m)
 evalThunk thunk = do
@@ -208,3 +204,4 @@ showValueLazy VLNil = return "[]"
 
 createThunk :: (PrimMonad m, Monad m) => EnvLazy m -> Expr -> EV m (Thunk m)
 createThunk venv expr = liftToEV $ newMutVar $ Thunk venv expr
+
