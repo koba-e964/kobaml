@@ -49,14 +49,14 @@ instance Show Type where
   show (TFun x y) = case x of
     (TFun _ _) -> "(" ++ show x ++ ") -> " ++ show y 
     _          -> show x ++ " -> " ++ show y
-  show (TVar v) = "'" ++ show v
-  show (TList a) = "[" ++ show a ++ "]"
-  show (TPair a b) = "(" ++ show a ++ ", " ++ show b ++ ")"
+  show (TVar v) = '\'' : show v
+  show (TList a) = '[' : show a ++ "]"
+  show (TPair a b) = '(' : show a ++ ", " ++ show b ++ ")"
 instance Show TypeScheme where
   show (Forall bvs ty)
     | Set.null bvs = show ty
     | otherwise    =
-      "forall" ++ concat (List.map (\x -> " '" ++ show x) (Set.toList bvs)) ++
+      "forall" ++ List.concatMap (\x -> " '" ++ show x) (Set.toList bvs) ++
         ". " ++ show ty
 
 tmEmpty :: TypeSubst
@@ -67,14 +67,14 @@ teEmpty = Map.empty
 
 -- | Generalizes @ty@ with no quantification.
 fromType :: Type -> TypeScheme
-fromType ty = Forall Set.empty ty
+fromType = Forall Set.empty
 
 freeVars :: Type -> Set TypeVar {- free variables in type -}
 freeVars (TConc _) = Set.empty
-freeVars (TFun ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
+freeVars (TFun ty1 ty2) = freeVars ty1 `Set.union` freeVars ty2
 freeVars (TVar var) = Set.singleton var
 freeVars (TList a) = freeVars a
-freeVars (TPair ty1 ty2) = Set.union (freeVars ty1) (freeVars ty2)
+freeVars (TPair ty1 ty2) = freeVars ty1 `Set.union` freeVars ty2
 
 freeVarsTypeScheme :: TypeScheme -> Set TypeVar
 freeVarsTypeScheme (Forall vars ty) = Set.difference (freeVars ty) vars
