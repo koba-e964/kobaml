@@ -165,13 +165,13 @@ type EnvLazy m = Map String (Thunk m)
     Exceptions
 -------------------}
 
-data ParseError = ParseError String deriving (Typeable, Show)
+data ParseError = ParseError String deriving (Typeable, Show, Eq)
 instance Exception ParseError
 
-data TypeError = TypeError String deriving (Typeable, Show)
+data TypeError = TypeError String deriving (Typeable, Show, Eq)
 instance Exception TypeError
 
-data EvalError = EvalError String deriving (Typeable, Show)
+data EvalError = EvalError String deriving (Typeable, Show, Eq)
 instance Exception EvalError
 
 data SomeError = 
