@@ -1,12 +1,12 @@
-# kobaml
+# melisma
 ## Overview
-**kobaml** is a tiny interpreter for ML-like language, written in Haskell. It supports library, type inference, lazy evaluation, and let polymorphism.
+**melisma** is a tiny interpreter for ML-like language, written in Haskell. It supports library, type inference, lazy evaluation, and let polymorphism.
 
 ## How to use
 `make` will create the executable file `mcalc`. `mcalc` loads the library file(`stdlib.txt`) on startup.
 ## sample
 ```
-koba-e964@debian-koba-e964-0:~/srcview/kobaml$ rlwrap ./mcalc 
+koba-e964@debian-koba-e964-0:~/srcview/melisma$ rlwrap ./mcalc 
 id : forall 'a. 'a -> 'a
 not : bool -> bool
 const : forall 'a 'b. 'a -> 'b -> 'a
@@ -47,5 +47,5 @@ error: TypeError "Cannot unify ['t0] with ['t7] -> 't8 (T_T)"
 * mtl-2.2.1
 
 ## Others
-**kobaml** is one of many implementations of ML-like languages. Any pull requests, bug reports, and comments are highly appreciated.
+**melisma** is one of many implementations of ML-like languages. Any pull requests, bug reports, and comments are highly appreciated.
 
