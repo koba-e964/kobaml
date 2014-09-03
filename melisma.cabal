@@ -19,7 +19,7 @@ source-repository this
 
 executable melisma
   main-is:             Main.hs
-  -- other-modules:       
+  hs-source-dirs:      src/
   build-depends:       base >=4 && <5, mtl >=2.2, containers >=0.5, array >=0.4, HUnit >=1.2, transformers >=0.3, primitive >=0.5
   build-tools:         alex, happy
   other-modules:       ExprLexer, ExprParser
