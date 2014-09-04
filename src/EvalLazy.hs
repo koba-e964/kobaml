@@ -7,6 +7,7 @@ import Control.Monad.State
 import Control.Monad.Primitive
 import qualified Data.Map as Map
 import Data.Primitive.MutVar
+import Data.List (foldl', intercalate)
 
 import CDef
 
@@ -83,20 +84,19 @@ eval (EFun name expr) = do
 eval (EApp func argv) = do
      env <- get
      join $ evalApp `liftM` eval func `ap` liftToEV (newMutVar (Thunk env argv))
-eval (ECons e1 e2) = constructFromThunk2 VLCons e1 e2
-eval (EPair e1 e2) = constructFromThunk2 VLPair e1 e2
-eval ENil          = return VLNil
+eval (ECons e1 e2) = constructFromThunks "::" [e1, e2]
+eval (EPair e1 e2) = constructFromThunks ","  [e1, e2]
+eval ENil          = constructFromThunks "[]" []
 eval (ESeq ea eb)  = do
      _ <- eval ea
      eval eb
 eval (EStr str) = return $ VLStr str
 
-constructFromThunk2 :: (PrimMonad m, Monad m) => (Thunk m -> Thunk m -> ValueLazy m) -> Expr -> Expr -> EV m (ValueLazy m)
-constructFromThunk2 cons e1 e2 = do
+constructFromThunks :: (PrimMonad m, Monad m) => String -> [Expr] -> EV m (ValueLazy m)
+constructFromThunks ctor es = do
      env <- get
-     t1 <- createThunk env e1
-     t2 <- createThunk env e2
-     return $ cons t1 t2
+     ts <- mapM (createThunk env) es
+     return $ VLCtor ctor ts
 
 evalApp :: (PrimMonad m, Monad m) => ValueLazy m -> Thunk m -> EV m (ValueLazy m)
 evalApp fval ath =
@@ -143,27 +143,14 @@ tryMatch thunk env pat = case pat of
       _                -> fail ""
   PConst _     -> error "weird const pattern... (>_<)"
   PVar (Name vname) -> return  $! Map.insert vname thunk env
-  PCons pcar pcdr   -> do
+  PCtor pctor pargs   -> do
     val <- lift $ evalThunk thunk
     case val of
-      VLCons vcar vcdr -> do
-        ex <- tryMatch vcar env pcar
-        ey <- tryMatch vcdr env pcdr
-        return $! ey `Map.union` ex `Map.union` env
+      VLCtor vctor vargs | vctor == pctor -> do
+        -- assert that length vargs == length pargs
+        exs <- forM [0 .. length pargs - 1] $ \i -> tryMatch (vargs !! i) env (pargs !! i)
+        return $! foldl' Map.union env exs
       _notused       -> fail ""
-  PPair pfst psnd   -> do
-    val <- lift $ evalThunk thunk
-    case val of
-      VLPair vfst vsnd -> do
-        ex <- tryMatch vfst env pfst
-        ey <- tryMatch vsnd env psnd
-        return $! ey `Map.union` ex `Map.union` env
-      _notused         -> fail ""
-  PNil              -> do
-    val <- lift $ evalThunk thunk
-    case val of
-      VLNil  -> return $ env
-      _      -> fail ""
 
 evalThunk :: (PrimMonad m, Monad m) => Thunk m -> EV m (ValueLazy m)
 evalThunk thunk = do
@@ -179,7 +166,15 @@ showValueLazy :: (PrimMonad m, Monad m) => ValueLazy m -> EV m String
 showValueLazy (VLInt  v) = return $ show v
 showValueLazy (VLBool v) = return $ show v
 showValueLazy (VLFun (Name name) _ _) = return $ "fun " ++ name ++ " -> (expr)" 
-showValueLazy (VLCons tcar tcdr) = do
+showValueLazy (VLCtor "::" [tcar,tcdr]) = showListLazy tcar tcdr
+showValueLazy (VLStr str) = return str
+showValueLazy (VLCtor "," [a,b]) = showPairLazy a b
+showValueLazy (VLCtor "[]" []) = return "[]"
+showValueLazy (VLCtor ctor args) = do
+    argsStr <- mapM (evalThunk >=> showValueLazy) args
+    return $ "(" ++ ctor ++ " " ++ intercalate " " argsStr ++ ")"
+showListLazy :: (PrimMonad m, Monad m) => Thunk m -> Thunk m -> EV m String
+showListLazy tcar tcdr = do
     inner <- sub tcar tcdr (10 :: Int)
     return $ "[" ++ inner ++ "]" where
     sub _ _    0 = return "..."
@@ -187,20 +182,20 @@ showValueLazy (VLCons tcar tcdr) = do
       v1 <- evalThunk t1
       vcdr <- evalThunk tcdr'
       case vcdr of
-        VLNil -> showValueLazy v1
-        VLCons t2 t3 -> do
+        VLCtor "[]" [] -> showValueLazy v1
+        VLCtor "::" [t2, t3] -> do
           sv <- showValueLazy v1
           sr <- sub t2 t3 (n-1)
           return $ sv ++ ", " ++ sr
         _     -> error "(>_<) < weird... the last cell of the list is not nil..."
-showValueLazy (VLStr str) = return str
-showValueLazy (VLPair a b) = do
+
+showPairLazy :: (PrimMonad m, Monad m) => Thunk m -> Thunk m -> EV m String
+showPairLazy a b = do
     va <- evalThunk a
     sa <- showValueLazy va
     vb <- evalThunk b
     sb <- showValueLazy vb
     return $ "(" ++ sa ++ ", " ++ sb ++ ")"
-showValueLazy VLNil = return "[]"
 
 createThunk :: (PrimMonad m, Monad m) => EnvLazy m -> Expr -> EV m (Thunk m)
 createThunk venv expr = liftToEV $ newMutVar $ Thunk venv expr

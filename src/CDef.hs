@@ -110,9 +110,7 @@ data ValueLazy m =
      VLInt Int
      | VLBool Bool
      | VLFun Name (EnvLazy m) Expr
-     | VLCons (Thunk m) (Thunk m)
-     | VLPair (Thunk m) (Thunk m)
-     | VLNil
+     | VLCtor String [Thunk m] -- allows arbitrary constructors
      | VLStr !String
 
 type Thunk m =
@@ -145,9 +143,7 @@ data Expr  = EConst Value
            deriving (Eq, Show)
 data Pat   = PConst Value
            | PVar   Name
-           | PCons  Pat Pat
-           | PPair  Pat Pat
-           | PNil
+           | PCtor String [Pat]
            deriving (Eq, Show)
 
 data Command

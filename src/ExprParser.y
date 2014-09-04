@@ -82,7 +82,7 @@ LET var args EQ expr EOC { CLet $2 (List.foldr EFun $5 $3) }
 ;
 
 pat:
-  simple_pat CONS pat { PCons $1 $3 }
+  simple_pat CONS pat { PCtor "::" [$1, $3] }
 | simple_pat          { $1 } 
 ;
 
@@ -91,9 +91,9 @@ simple_pat:
 | INT           { PConst (VInt $1) }
 | TRUE          { PConst (VBool True) }
 | FALSE         { PConst (VBool False) }
-| nil           { PNil }
+| nil           { PCtor "[]" [] }
 | LPAR pat RPAR { $2 }
-| LPAR pat ',' pat RPAR { PPair $2 $4 }
+| LPAR pat ',' pat RPAR { PCtor "," [$2, $4] }
 ;
 
 -- main_expr: 

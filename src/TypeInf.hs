@@ -198,17 +198,21 @@ gatherConstraintsPat (PConst _      ) = error "(>_<) < weird... invalid const pa
 gatherConstraintsPat (PVar (Name name)) = do
   a <- newType
   return (a, [], Map.singleton name (fromType a))
-gatherConstraintsPat PNil = do
-  a <- newType
-  return (TList a, [] , Map.empty)
-gatherConstraintsPat (PCons pcar pcdr) = do
-  (tcar, ccar, ecar) <- gatherConstraintsPat pcar
-  (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
-  return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr, ecar `Map.union` ecdr)
-gatherConstraintsPat (PPair pcar pcdr) = do
-  (tcar, ccar, ecar) <- gatherConstraintsPat pcar
-  (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
-  return (TPair tcar tcdr, ccar ++ ccdr, ecar `Map.union` ecdr)
+gatherConstraintsPat (PCtor pcons pargs)
+  | pcons == "[]" = do
+    a <- newType
+    return (TList a, [] , Map.empty)
+  | pcons == "::" && length pargs == 2 = do
+    let [pcar,pcdr] = pargs
+    (tcar, ccar, ecar) <- gatherConstraintsPat pcar
+    (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
+    return (tcdr, (TList tcar `typeEqual` tcdr) : ccar ++ ccdr, ecar `Map.union` ecdr)
+  | pcons == "," && length pargs == 2 = do
+    let [pcar,pcdr] = pargs
+    (tcar, ccar, ecar) <- gatherConstraintsPat pcar
+    (tcdr, ccdr, ecdr) <- gatherConstraintsPat pcdr
+    return (TPair tcar tcdr, ccar ++ ccdr, ecar `Map.union` ecdr)
+  | otherwise = throwError $ TypeError $ "invalid constructor: " ++ pcons
 
 tyRLetBindings :: Monad m => TypeEnv -> [(Name, Expr)] -> St m (TypeEnv, [TypeCons])
 tyRLetBindings tenv bindings = do
