@@ -151,6 +151,7 @@ data Command
   | CRLets  [(Name, Expr)]  
   | CExp    Expr 
   | CQuit
+  | CView   Name
   deriving (Eq, Show)
 
 type Env = Map String Value

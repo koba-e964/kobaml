@@ -53,6 +53,7 @@ LPAR {LPAR}
 RPAR {RPAR}
 EOC {EOC}
 EOF {EOF}
+"#v" {VIEW} 
 ',' {COMMA}
 ".." {DDOT}
 "#seq" {SSEQ}
@@ -79,6 +80,7 @@ LET var args EQ expr EOC { CLet $2 (List.foldr EFun $5 $3) }
 | LET REC letrecs EOC { CRLets $3 }
 | expr EOC            { CExp $1 }
 | EOF                 { CQuit }
+| "#v" var            { CView $2 }
 ;
 
 pat:

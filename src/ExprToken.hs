@@ -38,4 +38,5 @@ data Token
     | EOC
     | SQUOTE {- single quotation, '\'' -}
     | EOF
+    | VIEW {- "#v", view the specified object -}
     deriving (Eq, Show)

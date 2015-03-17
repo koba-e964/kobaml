@@ -200,3 +200,22 @@ showPairLazy a b = do
 createThunk :: (PrimMonad m, Monad m) => EnvLazy m -> Expr -> EV m (Thunk m)
 createThunk venv expr = liftToEV $ newMutVar $ Thunk venv expr
 
+-- showThunkLazy shows the content of thunk without evaluating it.
+showThunkLazy :: (PrimMonad m, Monad m) => Thunk m -> EV m String
+showThunkLazy thunk = liftToEV (readMutVar thunk) >>= showThunkData
+
+showThunkData :: (PrimMonad m, Monad m) => ThunkData m -> EV m String
+showThunkData (Thunk _venv expr) = return $ "(" ++ show expr ++ ")"
+showThunkData (ThVal val) = showValueStatic val
+
+
+-- showThunkLazy shows the content of value of type [ValueLazy m] without evaluating its content.
+showValueStatic :: (PrimMonad m, Monad m) => ValueLazy m -> EV m String
+showValueStatic (VLInt  v) = return $ show v
+showValueStatic (VLBool v) = return $ show v
+showValueStatic (VLFun (Name name) _ _) = return $ "fun " ++ name ++ " -> (expr)" 
+showValueStatic (VLStr str) = return str
+showValueStatic (VLCtor ctor ls) = do
+  strs <- mapM showThunkLazy ls
+  return $ ctor ++ " (" ++ intercalate ", " strs ++ ")"
+

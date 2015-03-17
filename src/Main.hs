@@ -79,8 +79,13 @@ processCmdShow !cmd !tenv !venv !showing=
                      return (newtenv, newvenv)
                  CExp expr -> processExpr "-" tenv venv expr showing >> return (tenv, venv)
                  CQuit     -> if showing then error "(>_<)(>_<)" else return (tenv, venv)
-
-
+                 CView (Name name) -> case Map.lookup name tenv of
+                   Nothing -> runEV venv $ evalError $ "Unbound variable: " ++ name
+                   Just ty -> do
+                     lift $ putStrLn $ "variable " ++ name ++ " : " ++ show ty
+                     let thunk = venv Map.! name
+                     lift . putStrLn . fst =<< runEV venv (showThunkLazy thunk)
+                     return (tenv, venv)
 processCmd :: Command -> TypeEnv -> EnvLazy IO -> ExceptT SomeError IO (TypeEnv, EnvLazy IO)
 processCmd !cmd !tenv !venv = processCmdShow cmd tenv venv True
 
